@@ -8,3 +8,6 @@ Some useful links:
 
 Imitation learning should be included to speed up training:
 * https://stable-baselines3.readthedocs.io/en/master/guide/imitation.html
+
+Smart Battery calculator (to compute energy consumption):
+* https://saft4u.saftbatteries.com/en/iot/simulator
