@@ -1,4 +1,4 @@
-# LoRaRL
+# LoRa + RL for frontier nodes  
 
 ## Resumen
 El principal objetivo es lograr optimizar el gasto de energía en redes LoRa de nodos frontera. Se propone utilizar tales nodos para aumentar las capacidades de la red, redireccionando el tráfico de nodos externos que no están en contacto con el gateway. Esto evita la instalación de nuevos gateways, que en muchos casos no es rentable. Evaluando diferentes configuraciones de transmisión (e.g., Spreading Factor, Coding Rate, Bitrate, etc.), se propone un algoritmo de aprendizaje reforzado para obtener aquellas configuraciones que logran una mayor eficiencia energética, maximizando la vida de la batería del dispositivo, mientras se garantiza una mayor fiabilidad (PRR y PDR), y se premia la transmisión los mensajes de alta prioridad.
