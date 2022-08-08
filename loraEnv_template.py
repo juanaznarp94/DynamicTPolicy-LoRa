@@ -17,21 +17,11 @@ QR = T*TDC/Q
 PACKET_SIZE = 208  # Bits
 MAX_BATTERY_LEVEL = 950  # mAh
 MIN_BATTERY_RATIO = 0.8
-ALL_ACTIONS = {
-    "a1": {'CR': 4 / 5, 'SF': 7, 'alpha': -30.2580, 'beta': 0.2857, 'TXR': 3410, 'SNR': 0.0001778279},
-    "a2": {'CR': 4 / 5, 'SF': 8, 'alpha': -77.1002, 'beta': 0.2993, 'TXR': 1841, 'SNR': 0.0000999999},
-    "a3": {'CR': 4 / 5, 'SF': 9, 'alpha': -244.6424, 'beta': 0.3223, 'TXR': 1015, 'SNR': 0.0000562341},
-    "a4": {'CR': 4 / 5, 'SF': 10, 'alpha': -725.9556, 'beta': 0.3340, 'TXR': 507, 'SNR': 0.0000316227},
-    "a5": {'CR': 4 / 5, 'SF': 11, 'alpha': -2109.8064, 'beta': 0.3407, 'TXR': 253, 'SNR': 0.0000177827},
-    "a6": {'CR': 4 / 5, 'SF': 12, 'alpha': -4452.3653, 'beta': 0.2217, 'TXR': 127, 'SNR': 0.0000099999},
-    "a7": {'CR': 4 / 7, 'SF': 7, 'alpha': -105.1966, 'beta': 0.3746, 'TXR': 2663, 'SNR': 0.0001778279},
-    "a8": {'CR': 4 / 7, 'SF': 8, 'alpha': -289.8133, 'beta': 0.3756, 'TXR': 1466, 'SNR': 0.0000999999},
-    "a9": {'CR': 4 / 7, 'SF': 9, 'alpha': -1114.3312, 'beta': 0.3969, 'TXR': 816, 'SNR': 0.0000562341},
-    "a10": {'CR': 4 / 7, 'SF': 10, 'alpha': -4285.4440, 'beta': 0.4116, 'TXR': 408, 'SNR': 0.0000316227},
-    "a11": {'CR': 4 / 7, 'SF': 11, 'alpha': -20771.6945, 'beta': 0.4332, 'TXR': 204, 'SNR': 0.0000177827},
-    "a12": {'CR': 4 / 7, 'SF': 12, 'alpha': -98658.1166, 'beta': 0.4485, 'TXR': 102, 'SNR': 0.0000099999}
-}
 
+"""TASK: Complete actions/configs"""
+ALL_ACTIONS = {
+    "a1": {'CR': 4/5, 'SF': 7, 'alpha': -30.2580, 'beta': 0.2857, 'TXR': 3410, 'SNR': 0.0001778279}
+}
 
 def discard_lowest_g_packets(to_transmit, to_transmit_priorities, max_packets):
     """
@@ -40,18 +30,13 @@ def discard_lowest_g_packets(to_transmit, to_transmit_priorities, max_packets):
     This is done by removing first those with the lowest priority.
     :param to_transmit: array of nodes that want to transmit, e.g., [1 0 1 1] => nodes with id 1, 3 and 4 transmit
     :param to_transmit_priorities: like to_transmit but including priorities (1,2,3). e.g., [2 0 3 1]
-    :param max_packets: max number of packets according to configuration selected with action
-    :return: transmitted messages, e.g., [0 0 1 1] => nodes with id 3 and 4 transmit
+    :param max_packets: max number of packets according to configuration selected with action, e.g., max_packets = 2
+    :return: transmitted messages, e.g., [1 0 1 0] => nodes with id 1 and 3 transmit (high priorities)
     """
     transmitted = np.copy(to_transmit)
-    toremove = sum(to_transmit) - max_packets
-    for g in [1, 2, 3]:  # Remove first low priorities, then high ones if still needed
-        print(g)
-        for i, v in enumerate(to_transmit_priorities):
-            if toremove > 0:
-                if v == g:
-                    transmitted[i] = 0
-                    toremove -= 1
+    """TASK Implement function"""
+    # ...
+    # ...
     return transmitted
 
 
@@ -76,7 +61,7 @@ class loraEnv(gym.Env, ABC):
         # Initialize variables
         self.action_space = spaces.Discrete(13)  # [0, 1, 2, 3, 4, ..., 12]
         self.min = 0
-        self.max = max(QMAX, MAX_BATTERY_LEVEL)
+        self.max = 10000 # ACTUALIZAR CON MAXIMO VALOR PRESENTE EN EL ESTADO (BATTERY Y
         self.observation_space = spaces.Box(low=self.min, high=self.max, shape=(1,), dtype=np.float32)
         self.q = QMAX  # 706 at the very beginning
         self.g = 3
@@ -146,9 +131,7 @@ class loraEnv(gym.Env, ABC):
             de = 0
             n_p = 0
             n_payload = 8 + max((8 * payload - 4 * sf + 16 + 28 - 20 * h) / (cr - 2 * de), 0)
-            t_symbol = pow(2, sf) / BW
-            # t_preamble = (4.25 + n_p) * t_symbol
-            # t_payload = n_payload * t_symbol
+            t_symbol = pow(2,sf)/BW
             p_cons = 412.5
             e_bit = (p_cons * (n_payload + n_p + 4.25) * t_symbol) / (8 * payload)
             self.e = self.e - e_bit * payload
