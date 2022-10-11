@@ -1,7 +1,7 @@
 import os
 import gym
 import numpy as np
-from roadenvacbeta import *
+#from roadenvacbeta import *
 from gym import wrappers
 from matplotlib import pyplot as plt
 from stable_baselines3 import SAC, PPO, TD3, A2C
@@ -16,6 +16,7 @@ from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 from stable_baselines3.common.results_plotter import load_results, ts2xy
+import loraEnv
 
 def store(dir, rewards):
     # Create policy
@@ -110,7 +111,7 @@ log_dir = "logs/"
 os.makedirs(log_dir, exist_ok=True)
 
 # Don't forget that it has been load from RoadEnvAC, not RoadEnv
-env = RoadEnvAC(10, 0.2, 1315)
+env = loraEnv(20)
 """TASK update env and input parameters"""
 
 #### Validate the environment
@@ -129,18 +130,6 @@ print("Sampled action: ", action)
 
 obs, reward, done, info = env.step(action)
 
-## Testing the environment
-# for s in range(10):
-#  print("Step {}".format(s + 1))
-#  obs, reward, done, info = env.step(-0.15)
-#  print('obs=', obs, 'reward=', reward, 'done=', done)
-#  if done:
-#    print("Goal reached!", "reward=", reward)
-#    break
-
-# Note the obs is a numpy array
-# info is an empty dict for now but can contain any debugging info
-# reward is a scalar
 print(obs.shape, reward, done, info)
 
 #### Training
@@ -149,7 +138,6 @@ env = Monitor(env, log_dir)
 env = make_vec_env(lambda: env, n_envs=1)
 
 callback = SaveOnBestTrainingRewardCallback(check_freq=10000, log_dir=log_dir, verbose=1)
-
 model = SAC('MlpPolicy', env, verbose=0, gamma=0.9, learning_rate=0.0001, batch_size=128)
 model.learn(total_timesteps=1500000, callback=callback)
 
