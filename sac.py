@@ -16,7 +16,7 @@ from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 from stable_baselines3.common.results_plotter import load_results, ts2xy
-import loraEnv
+from loraEnv import loraEnv
 
 def store(dir, rewards):
     # Create policy
@@ -107,7 +107,7 @@ class SaveOnBestTrainingRewardCallback(BaseCallback):
         return True
 
 
-log_dir = "logs/"
+log_dir = "logs/" # carpeta logs para meter todos los resultados
 os.makedirs(log_dir, exist_ok=True)
 
 # Don't forget that it has been load from RoadEnvAC, not RoadEnv
@@ -118,27 +118,29 @@ env = loraEnv(20)
 # It will check your custom environment and output additional warnings if needed
 check_env(env)
 
-print("Observation space: ", env.observation_space)
-print("Shape: ", env.observation_space.shape)
-print("Action space: ", env.action_space)
+print("Observation space: ", env.observation_space)  # cual es el estado actual
+print("Shape: ", env.observation_space.shape)  # la forma del estado
+print("Action space: ", env.action_space)  # shape de la acción (número)
 
 # The reset method is called at the beginning of an episode
-obs = env.reset()
+obs = env.reset()  # se resetea. Tienes un nuevo estado, una nueva observación
 # Sample a random action
-action = env.action_space.sample()
+action = env.action_space.sample()  # Coges una acción al azar
 print("Sampled action: ", action)
 
 obs, reward, done, info = env.step(action)
 
-print(obs.shape, reward, done, info)
+print(obs.shape, reward, done, info)  # pruebo que la recompensa sale bien
 
-#### Training
-env = wrappers.TimeLimit(env, max_episode_steps=200)
+#### Training / Empieza el entrenamiento
+env = wrappers.TimeLimit(env, max_episode_steps=200)  # cada episodio tenga 200 iter max
 env = Monitor(env, log_dir)
 env = make_vec_env(lambda: env, n_envs=1)
 
-callback = SaveOnBestTrainingRewardCallback(check_freq=10000, log_dir=log_dir, verbose=1)
-model = SAC('MlpPolicy', env, verbose=0, gamma=0.9, learning_rate=0.0001, batch_size=128)
+callback = SaveOnBestTrainingRewardCallback(check_freq=10000, log_dir=log_dir, verbose=1)  # guarda el mejor modelo
+model = PPO('MlpPolicy', env, verbose=0, gamma=0.9, learning_rate=0.0001, batch_size=128)
+
+#model = SAC('MlpPolicy', env, verbose=0, gamma=0.9, learning_rate=0.0001, batch_size=128)
 model.learn(total_timesteps=1500000, callback=callback)
 
 version = 0
@@ -148,7 +150,8 @@ model.save("lora_rl_sac_v" + str(version))
 
 # Helper from the library
 #results_plotter.plot_results([log_dir], 1e5, results_plotter.X_TIMESTEPS, "PPO")
-plot_results(log_dir, version)
+plot_results(log_dir, version)  # coge de la carpeta log el mejor modelo con la versión q le pongas y pinta la
+#la recompensa q has tenido durante el tiempo de entrenamiento
 
 # How to load previous trained model
 #model = A2C.load("logs/best_model_v1.zip")
