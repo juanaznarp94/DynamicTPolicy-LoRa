@@ -15,6 +15,7 @@ from shapely.geometry.polygon import LinearRing, Polygon
 from math import dist
 from scipy import stats
 from matplotlib.offsetbox import TextArea, DrawingArea, OffsetImage, AnnotationBbox
+from scipy import special as sp
 
 # Constants used through the training env
 T = 600  # seconds
@@ -23,11 +24,12 @@ TDC = 1 / 100  # 1%
 Q = 0.051  # Seconds
 Q_MAX = 3600*TDC/Q
 QR = T*TDC/Q
-PACKET_SIZE = 26*8  # Bits
-CAPACITY = 6.45  # Ah
+PACKET_SIZE_BITS = 26*8  # Bits
+PACKET_SIZE_BYTES = PACKET_SIZE_BITS / 8
+CAPACITY = 13  # Ah
 VOLTAGE = 3.6  # V
 CUT_OFF_VOLTAGE = 2.2  # V
-MAX_BATTERY_LEVEL = CAPACITY * (VOLTAGE-CUT_OFF_VOLTAGE) * 3600  # J
+MAX_BATTERY_LEVEL = CAPACITY * (VOLTAGE-CUT_OFF_VOLTAGE)
 
 # Allowed actions (configurations)
 ALL_ACTIONS = {
@@ -70,6 +72,8 @@ def heaviside(a, b):
     else:
         return -1
 
+def qfunc(x):
+    return 0.5 - 0.5 * sp.erf(x / math.sqrt(2))
 
 class loraEnv(Env):
     """Lora Environment that follows gym interface"""
@@ -152,38 +156,98 @@ class loraEnv(Env):
             print('PDR global: ' + str(self.pdr))
             """
 
+            # BER
+            #self.ber = pow(10, alpha * math.exp(beta * snr))
+            self.ber = 0.5 * qfunc(math.sqrt(2 * pow(2, sf)) - math.sqrt(1.386 * sf + 1.154))
+            print('BER: ' + str(self.ber))
+
             # PRR
-            self.ber = pow(10, alpha * math.exp(beta * snr))
-            self.prr = (1 - self.ber) ** (PACKET_SIZE * sum(transmitted))
+            self.prr = (1 - self.ber) ** (PACKET_SIZE_BITS * sum(transmitted))
             print('PRR: ' + str(self.prr))
 
             # Update q value
-            rest_action = ((PACKET_SIZE * sum(transmitted) / txr) / Q)
+            rest_action = ((PACKET_SIZE_BITS * sum(transmitted) / txr) / Q)
             self.q = self.q - rest_action
 
             # ENERGY
-            payload = self.N * PACKET_SIZE / 8  # bytes
-            n_p = 8
-            t_pr = (4.25 + n_p) * pow(2, sf) / BW
-            p_sy = 8 + max(((8 * payload - 4 * sf + 44 - 20 * 1) / (4 * (sf - 2 * 1))) * (cr + 4), 0)
-            t_pd = p_sy * pow(2, sf) / BW
-            t = t_pr + t_pd
-            idle = 1.05833  # J
-            rx = 0.0295488  # J
-            sleep = 0.0300672  # J
+            def h_de(lora_param_sf, lora_param_bw):
+                if lora_param_bw == 125 and lora_param_sf in [11, 12]:
+                    lora_param_de = 1
+                else:
+                    lora_param_de = 0
+                if sf == 6:
+                    lora_param_h = 1
+                else:
+                    lora_param_h = 0
+                return lora_param_h, lora_param_de
+
+            h, de = h_de(sf, BW)
+            payload = 1 * PACKET_SIZE_BYTES
+            # payload = self.N * PACKET_SIZE_BYTES  # bytes
+
+            def time_on_air(payload_size: int, lora_param_sf, lora_param_cr, lora_param_bw, lora_param_h, lora_param_de):
+                n_pr = 8  # https://www.google.com/patents/EP2763321A1?cl=en
+                t_sym = (2.0 ** lora_param_sf) / lora_param_bw
+                t_pr = (n_pr + 4.25) * t_sym
+                payload_sym_n_b = 8 + max(
+                    math.ceil(
+                        (
+                                8.0 * payload_size - 4.0 * lora_param_sf + 28 + 16 * lora_param_cr - 20 * lora_param_h) / (
+                                4.0 * (lora_param_sf - 2 * lora_param_de)))
+                    * (lora_param_cr + 4), 0)
+                t_payload = payload_sym_n_b * t_sym
+                return t_pr + t_payload
+
+            t_tx = time_on_air(int(payload), sf, cr, BW, h, de) / 1000
+            print('Time on air(s): ' + str(t_tx))
+
+            a_tx = 45 * 1e-3  # A
+
+            t_rx = 0.54  # seconds
+            a_rx = 15.2 * 1e-3  # A
+
+            t_idle = 1.27  # seconds
+            a_idle = 3 * 1e-3  # A
+
+            t_sleep = T - (t_idle + t_rx + t_tx)  # seconds, calculate sleep time by substracting busy values to T
+            a_sleep = 14 * 1e-6  # A
+
+            c_tx = a_tx * t_tx / 3600  # Ah
+            c_rx = a_rx * t_rx / 3600  # Ah
+            c_idle = a_idle * t_idle / 3600  # Ah
+            c_sleep = a_sleep * t_sleep / 3600  # Ah
+
+            c_total = c_rx + c_tx + c_idle + c_sleep
+
+            yearly = c_total * 6 * 24 * 365  # Ah yearly consumption
+            # We send a packet 6 times per hour, and a year have 24*365 hours
+
+            battery = 13 * (
+                    2.2 / 3.6)  # calculate the fraction of 13.000 mAh used having into account cutoff and voltage values
+            duration = battery / yearly  # divide the max battery available by the yearly amount, so we will obtain years
+            print(duration, "years")
+
+            """
             print('Self.e antes: ' + str(self.e))
             e_pkt = 0.0924 * t + idle + rx + sleep  # J or Ws using Pt = 13 dBm
-            battery_life = MAX_BATTERY_LEVEL * T / (e_pkt * 60 * 24 * 365)
+            e_bit = e_pkt / 8 * payload
+            print('e_pkt: ' + str(e_pkt))
+            print('e_bit: ' + str(e_bit))
             self.e = self.e - e_pkt
             print('Self.e después: ' + str(self.e))
-
             print('Energía por paquete: ' + str(e_pkt) + ' J')
-            print('Duración de la batería: ' + str(battery_life) + ' años')
 
-            # reward
-            reward = 0.4 * heaviside(self.prr, 0.8) + 0.4 * heaviside(self.pdr, 0.8) - 0.2 * heaviside(e_pkt, 437.8)
+            count = 0
+            while self.e > 0:
+                count += 1
+                self.e = self.e - e_pkt
+            print('iteraciones: ' + str(count))
+            
+            
+             
+            reward = 0.4 * heaviside(self.prr, 0.8) + 0.4 * heaviside(self.pdr, 0.8) - 0.2 * heaviside(e_pkt, 437.82)
             print('Recompensa: ' + str(reward))
-
+            """
         # Not transmit
         else:
             # Calculate metrics
