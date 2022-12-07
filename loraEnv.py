@@ -19,32 +19,45 @@ from scipy import special as sp
 
 # Constants used through the training env
 T = 600  # seconds
-BW = 125  # KHz
 TDC = 1 / 100  # 1%
 Q = 0.051  # Seconds
 Q_MAX = 3600*TDC/Q
 QR = T*TDC/Q
-PACKET_SIZE_BITS = 26*8  # Bits
+PACKET_SIZE_BITS = 11*8  # Bits
 PACKET_SIZE_BYTES = PACKET_SIZE_BITS / 8
 CAPACITY = 13  # Ah
 VOLTAGE = 3.6  # V
 CUT_OFF_VOLTAGE = 2.2  # V
 MAX_BATTERY_LEVEL = CAPACITY * (VOLTAGE-CUT_OFF_VOLTAGE)
+BER = [0.00013895754823009532, 6.390550739301948e-05, 2.4369646975025416e-05, 7.522516546093483e-06,
+       1.8241669079988032e-06, 3.351781950877708e-07]
 
 # Allowed actions (configurations)
 ALL_ACTIONS = {
-    "a1": {'CR': 4 / 5, 'SF': 7, 'alpha': -30.2580, 'beta': 0.2857, 'TXR': 3410, 'SNR': -7.5},
-    "a2": {'CR': 4 / 5, 'SF': 8, 'alpha': -77.1002, 'beta': 0.2993, 'TXR': 1841, 'SNR': -10},
-    "a3": {'CR': 4 / 5, 'SF': 9, 'alpha': -244.6424, 'beta': 0.3223, 'TXR': 1015, 'SNR': -12.5},
-    "a4": {'CR': 4 / 5, 'SF': 10, 'alpha': -725.9556, 'beta': 0.3340, 'TXR': 507, 'SNR': -15},
-    "a5": {'CR': 4 / 5, 'SF': 11, 'alpha': -2109.8064, 'beta': 0.3407, 'TXR': 253, 'SNR': -17.5},
-    "a6": {'CR': 4 / 5, 'SF': 12, 'alpha': -4452.3653, 'beta': 0.2217, 'TXR': 127, 'SNR': -20},
-    "a7": {'CR': 4 / 7, 'SF': 7, 'alpha': -105.1966, 'beta': 0.3746, 'TXR': 2663, 'SNR': -7.5},
-    "a8": {'CR': 4 / 7, 'SF': 8, 'alpha': -289.8133, 'beta': 0.3756, 'TXR': 1466, 'SNR': -10},
-    "a9": {'CR': 4 / 7, 'SF': 9, 'alpha': -1114.3312, 'beta': 0.3969, 'TXR': 816, 'SNR': -12.5},
-    "a10": {'CR': 4 / 7, 'SF': 10, 'alpha': -4285.4440, 'beta': 0.4116, 'TXR': 408, 'SNR': -15},
-    "a11": {'CR': 4 / 7, 'SF': 11, 'alpha': -20771.6945, 'beta': 0.4332, 'TXR': 204, 'SNR': -17.5},
-    "a12": {'CR': 4 / 7, 'SF': 12, 'alpha': -98658.1166, 'beta': 0.4485, 'TXR': 102, 'SNR': -20}
+    "a1": {'CR': 4 / 5, 'SF': 7, 'SNR': -7.5, 'BW': 125, 'SNR_lineal': 0.177827941,
+           'max_packages': math.floor(222 / PACKET_SIZE_BYTES)},
+    "a2": {'CR': 4 / 5, 'SF': 8, 'SNR': -10, 'BW': 500, 'SNR_lineal': 0.1,
+           'max_packages': math.floor(222 / PACKET_SIZE_BYTES)},
+    "a3": {'CR': 4 / 5, 'SF': 9, 'SNR': -12.5, 'BW': 125, 'SNR_lineal': 0.0562341325,
+           'max_packages': math.floor(115 / PACKET_SIZE_BYTES)},
+    "a4": {'CR': 4 / 5, 'SF': 10, 'SNR': -15, 'BW': 125, 'SNR_lineal': 0.0316227766,
+           'max_packages': math.floor(51 / PACKET_SIZE_BYTES)},
+    "a5": {'CR': 4 / 5, 'SF': 11, 'SNR': -17.5, 'BW': 500, 'SNR_lineal': 0.0177827941,
+           'max_packages': math.floor(51 / PACKET_SIZE_BYTES)},
+    "a6": {'CR': 4 / 5, 'SF': 12, 'SNR': -20, 'BW': 500, 'SNR_lineal': 0.01,
+           'max_packages': math.floor(51 / PACKET_SIZE_BYTES)},
+    "a7": {'CR': 4 / 7, 'SF': 7, 'SNR': -7.5, 'BW': 125, 'SNR_lineal': 0.177827941,
+           'max_packages': math.floor(222 / PACKET_SIZE_BYTES)},
+    "a8": {'CR': 4 / 7, 'SF': 8, 'SNR': -10, 'BW': 500, 'SNR_lineal': 0.1,
+           'max_packages': math.floor(222 / PACKET_SIZE_BYTES)},
+    "a9": {'CR': 4 / 7, 'SF': 9, 'SNR': -12.5, 'BW': 125, 'SNR_lineal': 0.05623413251,
+           'max_packages': math.floor(115 / PACKET_SIZE_BYTES)},
+    "a10": {'CR': 4 / 7, 'SF': 10, 'SNR': -15, 'BW': 125, 'SNR_lineal': 0.0316227766,
+            'max_packages': math.floor(51 / PACKET_SIZE_BYTES)},
+    "a11": {'CR': 4 / 7, 'SF': 11, 'SNR': -17.5, 'BW': 500, 'SNR_lineal': 0.0177827941,
+            'max_packages': math.floor(51 / PACKET_SIZE_BYTES)},
+    "a12": {'CR': 4 / 7, 'SF': 12, 'SNR': -20, 'BW': 500, 'SNR_lineal': 0.01,
+            'max_packages': math.floor(51 / PACKET_SIZE_BYTES)}
 }
 def discard_lowest_g_packets(to_transmit, to_transmit_priorities, max_packets):
     """
@@ -75,6 +88,31 @@ def heaviside(a, b):
 def qfunc(x):
     return 0.5 - 0.5 * sp.erf(x / math.sqrt(2))
 
+def h_de(lora_param_sf, lora_param_bw):
+    if lora_param_bw == 125 and lora_param_sf in [11, 12]:
+        lora_param_de = 1
+    else:
+        lora_param_de = 0
+    if lora_param_sf == 6:
+        lora_param_h = 1
+    else:
+        lora_param_h = 0
+    return lora_param_h, lora_param_de
+
+def time_on_air(payload_size: int, lora_param_sf, lora_param_cr, lora_param_crc, lora_param_bw, lora_param_h,
+                lora_param_de):
+    n_pr = 8  # https://www.google.com/patents/EP2763321A1?cl=en
+    t_sym = (2.0 ** lora_param_sf) / lora_param_bw
+    t_pr = (n_pr + 4.25) * t_sym
+    payload_sym_n_b = 8 + max(
+        math.ceil(
+            (
+                    8.0 * payload_size - 4.0 * lora_param_sf + 28 + 16 * lora_param_crc - 20 * lora_param_h) / (
+                    4.0 * (lora_param_sf - 2 * lora_param_de)))
+        * (lora_param_cr + 4), 0)
+    t_payload = payload_sym_n_b * t_sym
+    return t_pr + t_payload
+
 class loraEnv(Env):
     """Lora Environment that follows gym interface"""
 
@@ -83,11 +121,14 @@ class loraEnv(Env):
 
         # Class attributes
         self.N = N
+        self.ber_th = BER[0]
         self.min = 0
-        self.max = max(max(Q_MAX, MAX_BATTERY_LEVEL), self.N)
+        self.max = max(max(Q_MAX, CAPACITY), self.N, self.ber_th)
         self.q = Q_MAX
-        self.e = MAX_BATTERY_LEVEL
+        self.e = CAPACITY
         self.n = self.N
+        self.duration = 0
+        self.count = 0
 
         # Arrays to calculate pdr
         self.packets_attempted = np.zeros(self.n)  # to store the sum of the transmissions attempted by the external nodes
@@ -97,7 +138,8 @@ class loraEnv(Env):
         # They must be gym.spaces objects
         self.action_space = spaces.Discrete(12)
         self.observation_space = spaces.Box(low=self.min, high=self.max, shape=(3,), dtype=np.float64)
-        self.state = [self.q, self.e, self.n]
+        self.state = [self.e, self.n, self.ber_th]
+        print('self.state: ' + str(self.state))
 
         self.pdr = -1
         self.prr = []
@@ -106,16 +148,18 @@ class loraEnv(Env):
     def step(self, action):
         # Called to take an action with the environment, it returns the next observation,
 
-        reward = -1  # by defect
+        reward = -10  # by defect
 
         # Transform action (int) in the desired config and create variables (CR, SF, alpha, etc)
         config = list(ALL_ACTIONS.values())[action]
         cr = config.get("CR")
         sf = config.get("SF")
-        alpha = config.get("alpha")
-        beta = config.get("beta")
-        txr = config.get("TXR")
-        snr = config.get("SNR")
+        bw = config.get('BW')
+        snr_db = config.get("SNR")
+        snr_lineal = config.get("SNR_lineal")
+        max_packages = config.get("max_packages")
+        txr = sf * bw / (math.pow(2, sf))
+
 
         # Create an array with transmissions of external nodes with Bernoulli distribution
         # Create an array with random priorities
@@ -134,18 +178,21 @@ class loraEnv(Env):
         # If Q = QMAX (transmit only during 1% of T), there is energy enough,
         # and the frontier node has to transmit, that is to say, self.tx is 1,
         # then out packet is transmitted together with the packets received from external nodes
-        if MAX_BATTERY_LEVEL > 0:
-            max_packages = self.n/2
+        if 1==1:
             #max_packages = txr * Q * Q_MAX / PACKET_SIZE + 1  # Max number of packets agent node can transmit
 
             if sum(to_transmit) > max_packages:
                 transmitted = discard_lowest_g_packets(to_transmit, to_transmit_priorities, max_packages)
+                print('Transmitted: ' + str(transmitted))
             else:
                 transmitted = to_transmit
+                print('Transmitted: ' + str(transmitted))
 
             # PDR local
             self.pdr = np.sum(transmitted) / np.sum(to_transmit)
             print('PDR local: ' + str(self.pdr))
+
+            self.packets_transmitted = np.sum(transmitted)
 
             """
             # PDR global
@@ -158,7 +205,7 @@ class loraEnv(Env):
 
             # BER
             #self.ber = pow(10, alpha * math.exp(beta * snr))
-            self.ber = 0.5 * qfunc(math.sqrt(2 * pow(2, sf)) - math.sqrt(1.386 * sf + 1.154))
+            self.ber = 0.5 * qfunc(math.sqrt(2 * pow(2, sf) * snr_lineal) - math.sqrt(1.386 * sf + 1.154))
             print('BER: ' + str(self.ber))
 
             # PRR
@@ -169,36 +216,11 @@ class loraEnv(Env):
             rest_action = ((PACKET_SIZE_BITS * sum(transmitted) / txr) / Q)
             self.q = self.q - rest_action
 
-            # ENERGY
-            def h_de(lora_param_sf, lora_param_bw):
-                if lora_param_bw == 125 and lora_param_sf in [11, 12]:
-                    lora_param_de = 1
-                else:
-                    lora_param_de = 0
-                if sf == 6:
-                    lora_param_h = 1
-                else:
-                    lora_param_h = 0
-                return lora_param_h, lora_param_de
+            h, de = h_de(sf, bw)
+            crc = 1
+            payload = self.N * PACKET_SIZE_BYTES  # bytes
 
-            h, de = h_de(sf, BW)
-            payload = 1 * PACKET_SIZE_BYTES
-            # payload = self.N * PACKET_SIZE_BYTES  # bytes
-
-            def time_on_air(payload_size: int, lora_param_sf, lora_param_cr, lora_param_bw, lora_param_h, lora_param_de):
-                n_pr = 8  # https://www.google.com/patents/EP2763321A1?cl=en
-                t_sym = (2.0 ** lora_param_sf) / lora_param_bw
-                t_pr = (n_pr + 4.25) * t_sym
-                payload_sym_n_b = 8 + max(
-                    math.ceil(
-                        (
-                                8.0 * payload_size - 4.0 * lora_param_sf + 28 + 16 * lora_param_cr - 20 * lora_param_h) / (
-                                4.0 * (lora_param_sf - 2 * lora_param_de)))
-                    * (lora_param_cr + 4), 0)
-                t_payload = payload_sym_n_b * t_sym
-                return t_pr + t_payload
-
-            t_tx = time_on_air(int(payload), sf, cr, BW, h, de) / 1000
+            t_tx = time_on_air(int(payload), sf, cr, crc, bw, h, de) / 1000
             print('Time on air(s): ' + str(t_tx))
 
             a_tx = 45 * 1e-3  # A
@@ -218,36 +240,27 @@ class loraEnv(Env):
             c_sleep = a_sleep * t_sleep / 3600  # Ah
 
             c_total = c_rx + c_tx + c_idle + c_sleep
+            print('Consumo total de energía: ' + str(c_total))
+
+            while self.e >= 13 * 0.39:
+                self.e = self.e - c_total
+                self.count = self.count + 1
+            print('count: ' + str(self.count))
 
             yearly = c_total * 6 * 24 * 365  # Ah yearly consumption
             # We send a packet 6 times per hour, and a year have 24*365 hours
 
-            battery = 13 * (
-                    2.2 / 3.6)  # calculate the fraction of 13.000 mAh used having into account cutoff and voltage values
-            duration = battery / yearly  # divide the max battery available by the yearly amount, so we will obtain years
-            print(duration, "years")
+            battery = 13 * 0.39  # calculate the fraction of 13.000 mAh used having into account cutoff and voltage values
+            self.duration = battery / yearly  # divide the max battery available by the yearly amount, so we will obtain years
+            print(self.duration, "years")
 
-            """
-            print('Self.e antes: ' + str(self.e))
-            e_pkt = 0.0924 * t + idle + rx + sleep  # J or Ws using Pt = 13 dBm
-            e_bit = e_pkt / 8 * payload
-            print('e_pkt: ' + str(e_pkt))
-            print('e_bit: ' + str(e_bit))
-            self.e = self.e - e_pkt
-            print('Self.e después: ' + str(self.e))
-            print('Energía por paquete: ' + str(e_pkt) + ' J')
+            if self.ber < self.ber_th:
+                reward = self.duration * self.prr
+                print('Recompensa: ' + str(reward))
+            else:
+                reward = -10
+                print('Recompensa: ' + str(reward))
 
-            count = 0
-            while self.e > 0:
-                count += 1
-                self.e = self.e - e_pkt
-            print('iteraciones: ' + str(count))
-            
-            
-             
-            reward = 0.4 * heaviside(self.prr, 0.8) + 0.4 * heaviside(self.pdr, 0.8) - 0.2 * heaviside(e_pkt, 437.82)
-            print('Recompensa: ' + str(reward))
-            """
         # Not transmit
         else:
             # Calculate metrics
@@ -256,6 +269,7 @@ class loraEnv(Env):
             self.packets_transmitted = self.packets_transmitted
             self.pdr = np.sum(self.packets_transmitted) / np.sum(self.packets_attempted)
             self.prr = 0
+            self.duration = 0
 
             # Update q value
             # self.q = self.q + QR
@@ -263,17 +277,21 @@ class loraEnv(Env):
             # Energy
             self.e = self.e
 
-            reward = -1
+            reward = -100
 
         # update state
-        self.state = [self.q, self.e, self.n]
+        self.state = [self.e, self.n, self.ber_th]
         observation = np.array(self.state)
+        print('Observation: ' + str(observation))
         info = {}
         done = False
         return observation, reward, done, info
 
     def get_pdr(self):
         return self.pdr
+
+    def get_packets_tx(self):
+        return self.packets_transmitted
 
     def get_prr(self):
         return self.prr
@@ -284,23 +302,38 @@ class loraEnv(Env):
     def get_ber(self):
         return self.ber
 
+    def get_battery_life(self):
+        return self.duration
+
     def reset(self):
         self.q = Q_MAX  # 706 at the beginning
-        self.e = MAX_BATTERY_LEVEL
+        self.e = CAPACITY
         self.n = np.random.randint(1, self.N)
         self.packets_attempted = np.zeros((1, self.n))
         self.packets_transmitted = np.zeros((1, self.n))
         self.pdr = -1
         self.prr = []
-        self.state = [self.q, self.e, self.n]
+        self.ber_th = np.random.choice(BER)
+        self.state = [self.e, self.n, self.ber_th]
+        self.duration = 0
         observation = np.array(self.state)
         return observation
 
-    def set_nodes(self, N):
+    def set_nodes(self, N, ber_th):
         self.q = Q_MAX  # 706 at the beginning
-        self.e = MAX_BATTERY_LEVEL
+        self.e = CAPACITY
         self.n = N
-        self.state = [self.q, self.e, self.n]
+        self.ber_th = ber_th
+        self.state = [self.e, self.n, self.ber_th]
         observation = np.array(self.state)
         return observation
+
+    def set_ber(self, ber_th):
+        self.ber_th = ber_th
+        self.state = [self.e, self.n, self.ber_th]
+        observation = np.array(self.state)
+        return observation
+
+    def get_nodes(self):
+        return self.N
 
