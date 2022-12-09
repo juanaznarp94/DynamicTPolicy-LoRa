@@ -1,8 +1,9 @@
 from loraEnv import loraEnv
+import numpy as np
 def main():
     try:
         print('INICIO')
-        myEnv = loraEnv(20)
+        myEnv = loraEnv(30, 4)
         myEnv.step(5)
         print('FIN')
 
@@ -11,4 +12,3 @@ def main():
 
 
 if __name__ == '__main__': main()
-
