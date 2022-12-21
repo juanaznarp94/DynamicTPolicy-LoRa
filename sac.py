@@ -59,7 +59,7 @@ def plot_results(log_folder, version, title='Learning Curve'):
     plt.xlabel('Episodes')
     plt.ylabel('Average Reward per episode')
     plt.title(title + " Smoothed / v:" + str(version))
-    plt.savefig('reward.png')
+    plt.savefig('results/reward.png')
     plt.show()
 
 
@@ -111,7 +111,7 @@ log_dir = "logs/" # carpeta logs para meter todos los resultados
 os.makedirs(log_dir, exist_ok=True)
 
 # Don't forget that it has been load from RoadEnvAC, not RoadEnv
-env = loraEnv(20)
+env = loraEnv(1)
 """TASK update env and input parameters"""
 
 #### Validate the environment
@@ -138,6 +138,7 @@ env = Monitor(env, log_dir)
 env = make_vec_env(lambda: env, n_envs=1)
 
 callback = SaveOnBestTrainingRewardCallback(check_freq=10000, log_dir=log_dir, verbose=1)  # guarda el mejor modelo
+#model = A2C('MlpPolicy', env, verbose=0, gamma=0.9, learning_rate=0.0001, batch_size=128)
 model = PPO('MlpPolicy', env, verbose=0, gamma=0.9, learning_rate=0.0001, batch_size=128)
 
 #model = SAC('MlpPolicy', env, verbose=0, gamma=0.9, learning_rate=0.0001, batch_size=128)

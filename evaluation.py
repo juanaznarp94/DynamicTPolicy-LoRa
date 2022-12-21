@@ -25,16 +25,17 @@ ber = []
 battery_life = []
 packets_transmitted = []
 nodes = [1, 5, 10, 15, 20, 25, 30]
-count = 30
-
-env = loraEnv(30)
-
-while count >= 20:
-    state = env.set_ber(3.351781950877708e-07)
-
+count = 60
+BER = [0.00013895754823009532, 6.390550739301948e-05, 2.4369646975025416e-05, 7.522516546093483e-06,
+       1.8241669079988032e-06, 3.351781950877708e-07]
+env = loraEnv(1)
+#state = env.set_nodes(30)
+state = env.set_ber(3.351781950877708e-07)
+while count >= 50:
+    print(state)
     # Evaluade model with predict() method
     action, _state = model.predict(state)  # predecimos la acción más recomendada para ese estado
-    print('acción' + str(action))
+    print('acción: ' + str(action))
     env.step(action)
     state = env.state
     prr.append(env.get_prr())
@@ -42,17 +43,66 @@ while count >= 20:
     energy.append(env.get_energy())
     ber.append(env.get_ber())
     battery_life.append(env.get_battery_life())
-    packets_transmitted.append(env.get_packets_tx())
+    #packets_transmitted.append(env.get_packets_tx())
 
-    #print(count)
     count = count - 1
+state = env.set_ber(1.8241669079988032e-06)
+while count >= 40:
+    print(state)
+    # Evaluade model with predict() method
+    action, _state = model.predict(state)  # predecimos la acción más recomendada para ese estado
+    print('acción: ' + str(action))
+    env.step(action)
+    state = env.state
+    prr.append(env.get_prr())
+    pdr.append(env.get_pdr())
+    energy.append(env.get_energy())
+    ber.append(env.get_ber())
+    battery_life.append(env.get_battery_life())
+    #packets_transmitted.append(env.get_packets_tx())
+
+    count = count - 1
+
+state = env.set_ber(7.522516546093483e-06)
+while count >= 30:
+    print(state)
+    # Evaluade model with predict() method
+    action, _state = model.predict(state)  # predecimos la acción más recomendada para ese estado
+    print('acción: ' + str(action))
+    env.step(action)
+    state = env.state
+    prr.append(env.get_prr())
+    pdr.append(env.get_pdr())
+    energy.append(env.get_energy())
+    ber.append(env.get_ber())
+    battery_life.append(env.get_battery_life())
+    #packets_transmitted.append(env.get_packets_tx())
+
+    count = count - 1
+
+state = env.set_ber(2.4369646975025416e-05)
+while count >= 20:
+    print(state)
+    # Evaluade model with predict() method
+    action, _state = model.predict(state)  # predecimos la acción más recomendada para ese estado
+    print('acción: ' + str(action))
+    env.step(action)
+    state = env.state
+    prr.append(env.get_prr())
+    pdr.append(env.get_pdr())
+    energy.append(env.get_energy())
+    ber.append(env.get_ber())
+    battery_life.append(env.get_battery_life())
+    #packets_transmitted.append(env.get_packets_tx())
+
+    count = count - 1
+state = env.set_ber(6.390550739301948e-05)
 
 while count >= 10:
-    state = env.set_ber(0.00013895754823009532)
-
+    print(state)
     # Evaluade model with predict() method
     action, _state = model.predict(state)  # predecimos la acción más recomendada para ese estado
-    print('acción' + str(action))
+    print('acción: ' + str(action))
     env.step(action)
     state = env.state
     prr.append(env.get_prr())
@@ -60,17 +110,16 @@ while count >= 10:
     energy.append(env.get_energy())
     ber.append(env.get_ber())
     battery_life.append(env.get_battery_life())
-    packets_transmitted.append(env.get_packets_tx())
+    #packets_transmitted.append(env.get_packets_tx())
 
-    # print(count)
     count = count - 1
 
+state = env.set_ber(0.00013895754823009532)
 while count >= 0:
-    state = env.set_ber(3.351781950877708e-07)
 
     # Evaluade model with predict() method
     action, _state = model.predict(state)  # predecimos la acción más recomendada para ese estado
-    print('acción' + str(action))
+    print('acción: ' + str(action))
     env.step(action)
     state = env.state
     prr.append(env.get_prr())
@@ -78,7 +127,7 @@ while count >= 0:
     energy.append(env.get_energy())
     ber.append(env.get_ber())
     battery_life.append(env.get_battery_life())
-    packets_transmitted.append(env.get_packets_tx())
+    #packets_transmitted.append(env.get_packets_tx())
 
     # print(count)
     count = count - 1
@@ -88,7 +137,8 @@ np.savetxt(f"results/prr_opt_{nodes}.txt", prr, delimiter=",")
 np.savetxt(f"results/energy_opt_{nodes}.txt", energy, delimiter=",")
 np.savetxt(f"results/ber_opt_{nodes}.txt", ber, delimiter=",")
 np.savetxt(f"results/battery_life_opt_{nodes}.txt", battery_life, delimiter=",")
-np.savetxt(f"results/packets_txt_opt_{nodes}.txt", packets_transmitted, delimiter=",")
+#np.savetxt(f"results/packets_txt_opt_{nodes}.txt", packets_transmitted, delimiter=",")
+
 """
 # EVALUATION FOR SPECIF ACTION 
 
