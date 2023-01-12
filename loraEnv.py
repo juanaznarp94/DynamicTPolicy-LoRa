@@ -4,23 +4,25 @@ from gym import spaces
 import numpy as np
 import math
 from scipy import special as sp
+import random
 
 # Constants used through the training env
 T = 600  # seconds
 TDC = 1 / 100  # 1%
 Q = 0.051  # Seconds
-Q_MAX = 3600*TDC/Q
-QR = T*TDC/Q
-PACKET_SIZE_BITS = 11*8  # Bits
+Q_MAX = 3600 * TDC / Q
+QR = T * TDC / Q
+PACKET_SIZE_BITS = 11 * 8  # Bits
 PACKET_SIZE_BYTES = PACKET_SIZE_BITS / 8
 CAPACITY = 13  # Ah
 VOLTAGE = 3.6  # V
 CUT_OFF_VOLTAGE = 2.2  # V
-MAX_BATTERY_LEVEL = CAPACITY * (VOLTAGE-CUT_OFF_VOLTAGE)
+MAX_BATTERY_LEVEL = CAPACITY * (VOLTAGE - CUT_OFF_VOLTAGE)
 BER = [0.00013895754823009532, 6.390550739301948e-05, 2.4369646975025416e-05, 7.522516546093483e-06,
        1.8241669079988032e-06, 3.351781950877708e-07]
 DISTANCE = [2.6179598590188147, 3.2739303314239954, 4.094264386099205, 5.12014586944165, 6.403077879720777,
             8.00746841578568]
+ARRAY = np.array([0, 1, 2, 3, 4, 5])
 
 # Allowed actions (configurations)
 ALL_ACTIONS = {
@@ -35,7 +37,9 @@ ALL_ACTIONS = {
     "a5": {'CR': 4 / 5, 'SF': 11, 'SNR': -17.5, 'BW': 125, 'SNR_lineal': 0.0177827941,
            'max_packages': math.floor(51 / PACKET_SIZE_BYTES)},
     "a6": {'CR': 4 / 5, 'SF': 12, 'SNR': -20, 'BW': 125, 'SNR_lineal': 0.01,
-           'max_packages': math.floor(51 / PACKET_SIZE_BYTES)},
+           'max_packages': math.floor(51 / PACKET_SIZE_BYTES)}
+}
+"""
     "a7": {'CR': 4 / 7, 'SF': 7, 'SNR': -7.5, 'BW': 125, 'SNR_lineal': 0.177827941,
            'max_packages': math.floor(222 / PACKET_SIZE_BYTES)},
     "a8": {'CR': 4 / 7, 'SF': 8, 'SNR': -10, 'BW': 125, 'SNR_lineal': 0.1,
@@ -49,6 +53,7 @@ ALL_ACTIONS = {
     "a12": {'CR': 4 / 7, 'SF': 12, 'SNR': -20, 'BW': 125, 'SNR_lineal': 0.01,
             'max_packages': math.floor(51 / PACKET_SIZE_BYTES)}
 }
+"""
 def discard_lowest_g_packets(to_transmit, to_transmit_priorities, max_packets):
     """
     If the number of packets to transmit is higher than max allowed,
@@ -69,6 +74,7 @@ def discard_lowest_g_packets(to_transmit, to_transmit_priorities, max_packets):
                     to_remove -= 1
     return transmitted
 
+
 def heaviside(a, b):
     if a > b:
         return 1
@@ -77,8 +83,10 @@ def heaviside(a, b):
     else:
         return -1
 
+
 def qfunc(x):
     return 0.5 - 0.5 * sp.erf(x / math.sqrt(2))
+
 
 def h_de(lora_param_sf, lora_param_bw):
     if lora_param_bw == 125 and lora_param_sf in [11, 12]:
@@ -90,6 +98,7 @@ def h_de(lora_param_sf, lora_param_bw):
     else:
         lora_param_h = 0
     return lora_param_h, lora_param_de
+
 
 def time_on_air(payload_size: int, lora_param_sf, lora_param_cr, lora_param_crc, lora_param_bw, lora_param_h,
                 lora_param_de):
@@ -105,6 +114,7 @@ def time_on_air(payload_size: int, lora_param_sf, lora_param_cr, lora_param_crc,
     t_payload = payload_sym_n_b * t_sym
     return t_pr + t_payload
 
+
 class loraEnv(Env):
     """Lora Environment that follows gym interface"""
 
@@ -113,24 +123,26 @@ class loraEnv(Env):
 
         # Class attributes
         self.N = N
-        self.ber_th = BER[3]
+        self.ber_th = BER[0]
         self.min = 0
-        self.max = max(max(Q_MAX, CAPACITY), self.N, self.ber_th)
+        self.max = np.amax(ARRAY)
         self.q = Q_MAX
         self.e = CAPACITY
         self.n = self.N
         self.duration = 0
-        self.count = 0
+        self.action = 0
+        self.i = 3
 
+        #self.max = max(self.sf, self.max_packages)
         # Arrays to calculate pdr
-        #self.packets_attempted = np.zeros(self.n)  # to store the sum of the transmissions attempted by the external nodes
-        #self.packets_transmitted = np.zeros(self.n)  # to store the sum of the transmissions made by the external nodes
+        # self.packets_attempted = np.zeros(self.n)  # to store the sum of the transmissions attempted by the external nodes
+        # self.packets_transmitted = np.zeros(self.n)  # to store the sum of the transmissions made by the external nodes
 
         # Define action and observation space
         # They must be gym.spaces objects
-        self.action_space = spaces.Discrete(12)
-        self.observation_space = spaces.Box(low=self.min, high=self.max, shape=(3,), dtype=np.float64)
-        self.state = [self.e, self.n, self.ber_th]
+        self.action_space = spaces.Discrete(3)
+        self.observation_space = spaces.Box(low=self.min, high=self.max, shape=(2,), dtype=np.float64)  # cambiar
+        self.state = [ARRAY[self.i], self.ber_th]
         print('self.state: ' + str(self.state))
 
         self.pdr = 0
@@ -141,25 +153,44 @@ class loraEnv(Env):
         # Called to take an action with the environment, it returns the next observation,
 
         reward = -10  # by defect
+        self.action = action
 
         # Transform action (int) in the desired config and create variables (CR, SF, alpha, etc)
-        config = list(ALL_ACTIONS.values())[action]
-        cr = config.get("CR")
-        sf = config.get("SF")
-        bw = config.get('BW')
-        snr_db = config.get("SNR")
-        snr_lineal = config.get("SNR_lineal")
-        max_packages = config.get("max_packages")
-        txr = sf * bw / (math.pow(2, sf))
+        if action == 0:
+            self.i = self.i + 1
+            if self.i == 6:
+                self.i = self.i - 1
+            else:
+                self.i = self.i
+        if action == 1:
+            self.i = self.i
+        if action == 2:
+            self.i = self.i - 1
+            if self.i == -1:
+                self.i = self.i + 1
+            else:
+                self.i = self.i
 
+        print('Valor actual de i: ' + str(self.i))
+        config = list(ALL_ACTIONS.values())[self.i]
+        cr = config.get("CR")
+        print('cr: ' + str(cr))
+        sf = config.get("SF")
+        print('sf: ' + str(sf))
+        bw = config.get('BW')
+        print('bw: ' + str(bw))
+        snr_lineal = config.get("SNR_lineal")
+        print('snr: ' + str(snr_lineal))
+        max_packages = config.get("max_packages")
+        print('max_packages: ' + str(max_packages))
+        txr = sf * bw / (math.pow(2, sf))
 
         # Create an array with transmissions of external nodes with Bernoulli distribution
         # Create an array with random priorities
         to_transmit = np.ones(self.n).astype(int)
         print('To_transmit: ' + str(to_transmit))
-#        self.packets_attempted = (self.packets_attempted + to_transmit).astype(int)
-#        print('Packets_attempted: ' + str(self.packets_attempted))
-        print('To_transmit: ' + str(to_transmit))
+        #        self.packets_attempted = (self.packets_attempted + to_transmit).astype(int)
+        #        print('Packets_attempted: ' + str(self.packets_attempted))
 
         priorities = np.random.randint(low=1, high=4, size=self.n, dtype=int)
         print('Priorities: ' + str(priorities))
@@ -170,8 +201,8 @@ class loraEnv(Env):
         # If Q = QMAX (transmit only during 1% of T), there is energy enough,
         # and the frontier node has to transmit, that is to say, self.tx is 1,
         # then out packet is transmitted together with the packets received from external nodes
-        if 1==1:
-            #max_packages = txr * Q * Q_MAX / PACKET_SIZE + 1  # Max number of packets agent node can transmit
+        if 1 == 1:
+            # max_packages = txr * Q * Q_MAX / PACKET_SIZE + 1  # Max number of packets agent node can transmit
 
             if sum(to_transmit) > max_packages:
                 transmitted = discard_lowest_g_packets(to_transmit, to_transmit_priorities, max_packages)
@@ -184,19 +215,19 @@ class loraEnv(Env):
             self.pdr = np.sum(transmitted) / np.sum(to_transmit)
             print('PDR local: ' + str(self.pdr))
 
-            #self.packets_transmitted = np.sum(transmitted)
+            # self.packets_transmitted = np.sum(transmitted)
 
             """
             # PDR global
             self.packets_transmitted = np.add(self.packets_transmitted, transmitted)
             self.packets_attempted = np.add(self.packets_attempted, to_transmit)
             self.pdr = np.sum(self.packets_transmitted) / np.sum(self.packets_attempted)
-            
+
             print('PDR global: ' + str(self.pdr))
             """
 
             # BER
-            #self.ber = pow(10, alpha * math.exp(beta * snr))
+            # self.ber = pow(10, alpha * math.exp(beta * snr))
             self.ber = 0.5 * qfunc(math.sqrt(2 * pow(2, sf) * snr_lineal) - math.sqrt(1.386 * sf + 1.154))
             print('BER: ' + str(self.ber))
 
@@ -245,13 +276,9 @@ class loraEnv(Env):
 
             print('self.ber_th: ' + str(self.ber_th))
 
-            # normalize values for reward
+            # normalize values for reward (N=1)
             ber_max = 0.00013895754823009532
             ber_min = 3.351781950877708e-07
-            pdr_max = 1
-            pdr_min = 1
-            prr_max = 0.9999705047488826
-            prr_min = 3.351781950877708e-07
             duration_max = 15.66505259225036
             duration_min = 4.858807480488823
 
@@ -260,38 +287,12 @@ class loraEnv(Env):
             ber_norm = (self.ber - ber_min) / (ber_max - ber_min)
             print('ber normalizado: ' + str(ber_norm))
 
-            reward = self.duration * heaviside(self.ber_th, self.ber)
+            reward = duration_norm * heaviside(self.ber_th, self.ber)
 
             print('recompensa: ' + str(reward))
-            """
-            if self.ber < self.ber_th:
-                reward = 20 * self.duration + 30 * self.prr + 20 * self.pdr
-                print('reward: ' + str(reward))
-            else:
-                reward = - (20 * self.duration + 30 * self.prr + 20 * self.pdr)
-                print('reward: ' + str(reward))
-            """
-
-        # Not transmit
-        else:
-            # Calculate metrics
-            # PDR
-            #self.packets_attempted = np.add(self.packets_attempted, to_transmit)
-            #self.packets_transmitted = self.packets_transmitted
-            self.pdr = np.sum(self.packets_transmitted) / np.sum(self.packets_attempted)
-            self.prr = 0
-            self.duration = 0
-
-            # Update q value
-            # self.q = self.q + QR
-
-            # Energy
-            self.e = self.e
-
-            reward = -100
 
         # update state
-        self.state = [self.e, self.n, self.ber_th]
+        self.state = [ARRAY[self.i], self.ber_th]
         observation = np.array(self.state)
         print('Observation: ' + str(observation))
         info = {}
@@ -320,30 +321,31 @@ class loraEnv(Env):
         self.q = Q_MAX  # 706 at the beginning
         self.e = CAPACITY
         self.n = 1
-        #self.n = np.random.randint(1, self.N)
-        #self.packets_attempted = np.zeros((1, self.n))
-        #self.packets_transmitted = np.zeros((1, self.n))
+        # self.n = np.random.randint(1, self.N)
+        # self.packets_attempted = np.zeros((1, self.n))
+        # self.packets_transmitted = np.zeros((1, self.n))
         self.pdr = 0
         self.prr = 0
         self.ber = 0
         self.ber_th = np.random.choice(BER)
-        self.state = [self.e, self.n, self.ber_th]
+        self.i = np.random.randint(0, 6)
+        self.state = [ARRAY[self.i], self.ber_th]
         self.duration = 0
         observation = np.array(self.state)
         return observation
 
     def set_nodes(self, N):
         self.n = N
-        self.state = [self.e, self.n, self.ber_th]
-        observation = np.array(self.state)
-        return observation
+        #self.state = [sf, snr_lineal, max_packages]
+        #observation = np.array(self.state)
+        #return observation
 
     def set_ber(self, ber_th):
         self.ber_th = ber_th
-        self.state = [self.e, self.n, self.ber_th]
+        self.state = [ARRAY[self.i], self.ber_th]
         observation = np.array(self.state)
         return observation
 
     def get_nodes(self):
-        return self.N
+        return self.n
 
