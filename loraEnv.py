@@ -5,6 +5,11 @@ import numpy as np
 import math
 from scipy import special as sp
 
+
+def normalize_data(data):
+    return (data - np.min(data)) / (np.max(data) - np.min(data))
+
+
 # Constants used through the training env
 T = 600  # seconds
 TDC = 1 / 100  # 1%
@@ -19,12 +24,15 @@ CUT_OFF_VOLTAGE = 2.2  # V
 MAX_BATTERY_LEVEL = CAPACITY * (VOLTAGE - CUT_OFF_VOLTAGE)
 BER = [0.00013895754823009532, 6.390550739301948e-05, 2.4369646975025416e-05, 7.522516546093483e-06,
        1.8241669079988032e-06, 3.351781950877708e-07]
-BER_NORM = BER / np.linalg.norm(BER)
+
+BER_NORM = normalize_data(BER)
 
 DISTANCE = [2.6179598590188147, 3.2739303314239954, 4.094264386099205, 5.12014586944165, 6.403077879720777,
             8.00746841578568]
+DURATION = [15.635346635989748, 14.452773648384722, 12.968427828954564, 10.47161281273549, 7.560400710355283,
+            4.858807480488823]
 
-AVAILABLE_CONFIGS = np.array([0, 1, 2, 3, 4, 5])
+AVAILABLE_CONFIGS = np.array([0, 1/5, 2/5, 3/5, 4/5, 1])
 
 # Allowed actions (configurations)
 ALL_ACTIONS = {
@@ -57,7 +65,6 @@ ALL_ACTIONS = {
 }
 """
 
-
 def discard_lowest_g_packets(to_transmit, to_transmit_priorities, max_packets):
     """
     If the number of packets to transmit is higher than max allowed,
@@ -89,14 +96,12 @@ def heaviside(ber_th, ber):
 def qfunc(x):
     return 0.5 - 0.5 * sp.erf(x / math.sqrt(2))
 
-
 def h_de(lora_param_sf, lora_param_bw):
     if lora_param_bw == 125 and lora_param_sf in [11, 12]:
         lora_param_de = 1
     else:
         lora_param_de = 0
-    # TODO: No harcodear nada (0, 6...), utilizar max() o  min() para leer automaticamente el 0 o 6
-    # TODO: Si otro dia amplias con otra config conlleva un trabajo enorme modificar el codigo
+
     if lora_param_sf == 6:
         lora_param_h = 1
     else:
@@ -119,6 +124,33 @@ def time_on_air(payload_size: int, lora_param_sf, lora_param_cr, lora_param_crc,
     return t_pr + t_payload
 
 
+def model_energy(t_tx):
+
+    # Indicate battery type here
+    a_tx = 45 * 1e-3  # A
+    t_rx = 0.54  # seconds
+    a_rx = 15.2 * 1e-3  # A
+    t_idle = 1.27  # seconds
+    a_idle = 3 * 1e-3  # A
+    t_sleep = T - (t_idle + t_rx + t_tx)  # seconds, calculate sleep time by substracting busy values to T
+    a_sleep = 14 * 1e-6  # A
+
+    c_tx = a_tx * t_tx / 3600  # Ah
+    c_rx = a_rx * t_rx / 3600  # Ah
+    c_idle = a_idle * t_idle / 3600  # Ah
+    c_sleep = a_sleep * t_sleep / 3600  # Ah
+
+    c_total = c_rx + c_tx + c_idle + c_sleep
+
+    yearly = c_total * 6 * 24 * 365  # Ah yearly consumption
+    # We send a packet 6 times per hour, and a year have 24*365 hours
+
+    battery = 13 * 0.39  # calculate the fraction of 13.000 mAh used having into account cutoff and voltage values
+    duration = battery / yearly  # divide the max battery available by the yearly amount, so we will obtain years
+
+    return c_total, duration
+
+
 class loraEnv(Env):
     """Lora Environment that follows gym interface"""
 
@@ -135,14 +167,14 @@ class loraEnv(Env):
         self.n = self.N
         self.duration = 0
         self.action = 0
-        self.i = 3
+        self.i = 0
 
         # Define action and observation space
         # They must be gym.spaces objects
         self.action_space = spaces.Discrete(3)
         # TODO Probar con multidiscret si no funciona. Aunque mejor Box.
         self.observation_space = spaces.Box(low=self.min, high=self.max, shape=(2,), dtype=np.float64)
-        self.observation_space = spaces.MultiDiscrete([len(AVAILABLE_CONFIGS), len(BER_NORM)])
+        #self.observation_space = spaces.MultiDiscrete([len(AVAILABLE_CONFIGS), len(BER_NORM)])
         self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th]
 
         self.pdr = 0
@@ -150,27 +182,23 @@ class loraEnv(Env):
         self.ber = 0
 
     def step(self, action):
+
         reward = -10  # by defect
         self.action = action
 
         # Transform action (int) in the desired config and create variables (CR, SF, alpha, etc)
         if action == 0:
-            if self.i == 6:
+            if self.i == len(AVAILABLE_CONFIGS) - 1:
                 pass
-            # TODO Por que primero incrementas y despoues disminuyes?
-            self.i = self.i + 1
-            if self.i == 6:
-                self.i = self.i - 1
             else:
-                self.i = self.i
+                self.i = self.i + 1
         if action == 1:
             pass
         if action == 2:
-            self.i = self.i - 1
-            if self.i == -1:
-                self.i = self.i + 1
+            if self.i == np.min(AVAILABLE_CONFIGS):
+                pass
             else:
-                self.i = self.i
+                self.i = self.i - 1
 
         config = list(ALL_ACTIONS.values())[self.i]
         cr = config.get("CR")
@@ -203,49 +231,27 @@ class loraEnv(Env):
         rest_action = ((PACKET_SIZE_BITS * sum(transmitted) / txr) / Q)
         self.q = self.q - rest_action
 
+        # Energy Consumption
         h, de = h_de(sf, bw)
         crc = 1
         payload = self.N * PACKET_SIZE_BYTES  # bytes
-
-        # TODO: todo esto es constante para cada config, por que no lo calculas una sola vez antes de inicializar la clase? arriba del todo?
-        # TODO: Crea una function y ponlo todo arriba
         t_tx = time_on_air(int(payload), sf, cr, crc, bw, h, de) / 1000
-
-        # Indicate battery type here
-        a_tx = 45 * 1e-3  # A
-        t_rx = 0.54  # seconds
-        a_rx = 15.2 * 1e-3  # A
-        t_idle = 1.27  # seconds
-        a_idle = 3 * 1e-3  # A
-        t_sleep = T - (t_idle + t_rx + t_tx)  # seconds, calculate sleep time by substracting busy values to T
-        a_sleep = 14 * 1e-6  # A
-
-        c_tx = a_tx * t_tx / 3600  # Ah
-        c_rx = a_rx * t_rx / 3600  # Ah
-        c_idle = a_idle * t_idle / 3600  # Ah
-        c_sleep = a_sleep * t_sleep / 3600  # Ah
-
-        c_total = c_rx + c_tx + c_idle + c_sleep
-
+        c_total, self.duration = model_energy(t_tx)
         self.e = self.e - c_total
 
-        yearly = c_total * 6 * 24 * 365  # Ah yearly consumption
-        # We send a packet 6 times per hour, and a year have 24*365 hours
-
-        battery = 13 * 0.39  # calculate the fraction of 13.000 mAh used having into account cutoff and voltage values
-        self.duration = battery / yearly  # divide the max battery available by the yearly amount, so we will obtain years
-
-        # normalize values for reward (N=1)
-        # TODO: No hardcodear nada en el codigo, todo con funciones y relacionado, si luego cambias algo --> resultado incorrecto
-
-        duration_max = 15.66505259225036
-        duration_min = 4.858807480488823
+        # Normalize values for reward (N=1)
+        ber_max = np.amax(BER)
+        ber_min = np.amin(BER)
+        duration_max = np.amax(DURATION)
+        duration_min = np.amin(DURATION)
 
         duration_norm = (self.duration - duration_min) / (duration_max - duration_min)
-        ber_th = BER[int(np.where(BER_NORM == self.ber_th)[0])]
+        ber_norm = (self.ber - ber_min) / (ber_max - ber_min)
 
-        reward = (1 / c_total) * heaviside(ber_th, self.ber)
-        # reward = self.duration
+        # Calculate reward
+        #reward = duration_norm * heaviside(self.ber_th, self.ber) * (1/self.ber)
+        reward = duration_norm * heaviside(self.ber_th, ber_norm)
+
         # update state
         self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th]
         observation = np.array(self.state)
@@ -264,8 +270,7 @@ class loraEnv(Env):
         self.prr = 0
         self.ber = 0
         self.ber_th = np.random.choice(BER_NORM)
-        self.i = np.random.randint(0, 6)
-        # TODO: No hardcodear
+        self.i = np.random.randint(np.min(AVAILABLE_CONFIGS), len(AVAILABLE_CONFIGS))
         self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th]
         self.duration = 0
         observation = np.array(self.state)
@@ -273,12 +278,11 @@ class loraEnv(Env):
 
     def set_nodes(self, N):
         self.n = N
-        # self.state = [sf, snr_lineal, max_packages]
-        # observation = np.array(self.state)
-        # return observation
+        #self.state = [sf, snr_lineal, max_packages]
+        #observation = np.array(self.state)
+        #return observation
 
     def set_ber(self, ber_th):
-        # TODO: No entiendo la siguiente linea de codigo
         self.ber_th = ber_th
         self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th]
         observation = np.array(self.state)
