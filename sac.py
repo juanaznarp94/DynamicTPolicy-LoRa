@@ -41,7 +41,6 @@ def moving_average(values, window):
 def plot_results(log_folder, version, title='Learning Curve'):
     """
     Plot results
-
     :param log_folder: (str) the save location of the results to plot
     :param title: (str) the title of the task to plot
     """
@@ -67,7 +66,6 @@ class SaveOnBestTrainingRewardCallback(BaseCallback):
     """
     Callback for saving a model (the check is done every ``check_freq`` steps)
     based on the training reward (in practice, we recommend using ``EvalCallback``).
-
     :param check_freq: (int)
     :param log_dir: (str) Path to the folder where the model will be saved.
       It must contains the file created by the ``Monitor`` wrapper.
@@ -133,16 +131,16 @@ obs, reward, done, info = env.step(action)
 print(obs.shape, reward, done, info)  # pruebo que la recompensa sale bien
 
 #### Training / Empieza el entrenamiento
-env = wrappers.TimeLimit(env, max_episode_steps=20)  # Es lo que hace que cuando acabe el episodio resetee
+env = wrappers.TimeLimit(env, max_episode_steps=100)  # Es lo que hace que cuando acabe el episodio resetee
 env = Monitor(env, log_dir)
-env = make_vec_env(lambda: env, n_envs=1)
+env = make_vec_env(lambda: env, n_envs=2)
 
-callback = SaveOnBestTrainingRewardCallback(check_freq=8000, log_dir=log_dir, verbose=1)  # guarda el mejor modelo
+callback = SaveOnBestTrainingRewardCallback(check_freq=10000, log_dir=log_dir, verbose=1)  # guarda el mejor modelo
 #model = A2C('MlpPolicy', env, verbose=0, gamma=0.9, learning_rate=0.0001, batch_size=128)
-model = PPO('MlpPolicy', env, verbose=0, gamma=0.9, learning_rate=0.00001, batch_size=128)
+model = PPO('MlpPolicy', env, verbose=0, gamma=0.9, learning_rate=0.0001, batch_size=512)
 
 #model = SAC('MlpPolicy', env, verbose=0, gamma=0.9, learning_rate=0.0001, batch_size=128)
-model.learn(total_timesteps=100000, callback=callback)
+model.learn(total_timesteps=1000000, callback=callback)
 
 version = 0
 
