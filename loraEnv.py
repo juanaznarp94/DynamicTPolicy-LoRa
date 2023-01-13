@@ -19,6 +19,8 @@ CUT_OFF_VOLTAGE = 2.2  # V
 MAX_BATTERY_LEVEL = CAPACITY * (VOLTAGE - CUT_OFF_VOLTAGE)
 BER = [0.00013895754823009532, 6.390550739301948e-05, 2.4369646975025416e-05, 7.522516546093483e-06,
        1.8241669079988032e-06, 3.351781950877708e-07]
+BER_NORM = BER / np.linalg.norm(BER)
+
 DISTANCE = [2.6179598590188147, 3.2739303314239954, 4.094264386099205, 5.12014586944165, 6.403077879720777,
             8.00746841578568]
 
@@ -54,6 +56,8 @@ ALL_ACTIONS = {
             'max_packages': math.floor(51 / PACKET_SIZE_BYTES)}
 }
 """
+
+
 def discard_lowest_g_packets(to_transmit, to_transmit_priorities, max_packets):
     """
     If the number of packets to transmit is higher than max allowed,
@@ -84,6 +88,7 @@ def heaviside(ber_th, ber):
 
 def qfunc(x):
     return 0.5 - 0.5 * sp.erf(x / math.sqrt(2))
+
 
 def h_de(lora_param_sf, lora_param_bw):
     if lora_param_bw == 125 and lora_param_sf in [11, 12]:
@@ -122,7 +127,7 @@ class loraEnv(Env):
 
         # Class attributes
         self.N = N
-        self.ber_th = BER[0]
+        self.ber_th = BER_NORM[0]
         self.min = 0
         self.max = np.amax(AVAILABLE_CONFIGS)
         self.q = Q_MAX
@@ -137,6 +142,7 @@ class loraEnv(Env):
         self.action_space = spaces.Discrete(3)
         # TODO Probar con multidiscret si no funciona. Aunque mejor Box.
         self.observation_space = spaces.Box(low=self.min, high=self.max, shape=(2,), dtype=np.float64)
+        self.observation_space = spaces.MultiDiscrete([len(AVAILABLE_CONFIGS), len(BER_NORM)])
         self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th]
 
         self.pdr = 0
@@ -144,7 +150,6 @@ class loraEnv(Env):
         self.ber = 0
 
     def step(self, action):
-
         reward = -10  # by defect
         self.action = action
 
@@ -232,16 +237,15 @@ class loraEnv(Env):
 
         # normalize values for reward (N=1)
         # TODO: No hardcodear nada en el codigo, todo con funciones y relacionado, si luego cambias algo --> resultado incorrecto
-        ber_max = 0.00013895754823009532
-        ber_min = 3.351781950877708e-07
+
         duration_max = 15.66505259225036
         duration_min = 4.858807480488823
 
         duration_norm = (self.duration - duration_min) / (duration_max - duration_min)
-        ber_norm = (self.ber - ber_min) / (ber_max - ber_min)
+        ber_th = BER[int(np.where(BER_NORM == self.ber_th)[0])]
 
-        #reward = duration_norm * heaviside(self.ber_th, self.ber) * (1/self.ber)
-        reward = self.duration
+        reward = (1 / c_total) * heaviside(ber_th, self.ber)
+        # reward = self.duration
         # update state
         self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th]
         observation = np.array(self.state)
@@ -252,7 +256,6 @@ class loraEnv(Env):
     def getStatistics(self):
         return [self.ber, self.ber_th, self.duration, self.prr, self.state]
 
-
     def reset(self):
         self.q = Q_MAX  # 706 at the beginning
         self.e = CAPACITY
@@ -260,7 +263,7 @@ class loraEnv(Env):
         self.pdr = 0
         self.prr = 0
         self.ber = 0
-        self.ber_th = np.random.choice(BER)
+        self.ber_th = np.random.choice(BER_NORM)
         self.i = np.random.randint(0, 6)
         # TODO: No hardcodear
         self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th]
@@ -270,15 +273,13 @@ class loraEnv(Env):
 
     def set_nodes(self, N):
         self.n = N
-        #self.state = [sf, snr_lineal, max_packages]
-        #observation = np.array(self.state)
-        #return observation
+        # self.state = [sf, snr_lineal, max_packages]
+        # observation = np.array(self.state)
+        # return observation
 
     def set_ber(self, ber_th):
-        self.ber_th = ber_th
         # TODO: No entiendo la siguiente linea de codigo
+        self.ber_th = ber_th
         self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th]
         observation = np.array(self.state)
         return observation
-
-

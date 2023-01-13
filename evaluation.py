@@ -20,11 +20,13 @@ def smooth(y, box_pts):
     return y_smooth
 
 # Load model
-model = PPO.load("logs/best_model.zip") # para cargar modelo que se haya generado en el solver
+#model = PPO.load("logs/best_model.zip")
+model = PPO.load("lora_rl_sac_v0")
 # TODO: Test other algorithms too
 
-array_BER_th = [0.00013895754823009532, 6.390550739301948e-05, 2.4369646975025416e-05, 7.522516546093483e-06,
+BER = [0.00013895754823009532, 6.390550739301948e-05, 2.4369646975025416e-05, 7.522516546093483e-06,
        1.8241669079988032e-06, 3.351781950877708e-07]
+BER_NORM = BER / np.linalg.norm(BER)
 
 env = loraEnv(1)
 state = env.reset()
@@ -39,12 +41,13 @@ def step_csv(state,ber_th):
         for k in range(100):
             action, _state = model.predict(state)  # predecimos la acción más recomendada para ese estado
             env.step(action)
-            state = env.state
-            data_row = env.getStatistics()
+            ber, ber_norm, duration, prr, state = env.getStatistics()
+            ber_th = BER[int(np.where(BER_NORM == ber_norm)[0])]
+            data_row = [ber, ber_th, duration, prr, state]
             writer.writerow(data_row)
 
 # EVALUATE AND SAVE RESULTS
-for i, ber_th in enumerate(array_BER_th):
+for i, ber_th in enumerate(BER_NORM):
     step_csv(state, ber_th)
 
 # PLOT
@@ -57,7 +60,7 @@ def plot_ber_comparison(combine):
     sns.set_style("dark")
     sns.barplot(x='ber_th', y='ber', data=data,
                 palette='deep', capsize=0.05, errwidth=1, ax=ax1).set(xlabel='Target BER', ylabel='BER')
-    for i, ber_th in enumerate(array_BER_th[::-1]):
+    for i, ber_th in enumerate(BER[::-1]):
         plt.hlines(y=ber_th, xmin=i-0.5, xmax=0.5+i, color='red', alpha=0.3)
     ax1.set_xticklabels(["3.35e-07", "1.82e-06", "7.52e-06", "2.43e-05", "6.39e-05", "0.000138"], fontsize=8)
     plt.tight_layout()

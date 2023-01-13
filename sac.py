@@ -133,16 +133,16 @@ obs, reward, done, info = env.step(action)
 print(obs.shape, reward, done, info)  # pruebo que la recompensa sale bien
 
 #### Training / Empieza el entrenamiento
-env = wrappers.TimeLimit(env, max_episode_steps=100)  # Es lo que hace que cuando acabe el episodio resetee
+env = wrappers.TimeLimit(env, max_episode_steps=20)  # Es lo que hace que cuando acabe el episodio resetee
 env = Monitor(env, log_dir)
-env = make_vec_env(lambda: env, n_envs=2)
+env = make_vec_env(lambda: env, n_envs=1)
 
-callback = SaveOnBestTrainingRewardCallback(check_freq=10000, log_dir=log_dir, verbose=1)  # guarda el mejor modelo
+callback = SaveOnBestTrainingRewardCallback(check_freq=8000, log_dir=log_dir, verbose=1)  # guarda el mejor modelo
 #model = A2C('MlpPolicy', env, verbose=0, gamma=0.9, learning_rate=0.0001, batch_size=128)
-model = PPO('MlpPolicy', env, verbose=0, gamma=0.9, learning_rate=0.0001, batch_size=512)
+model = PPO('MlpPolicy', env, verbose=0, gamma=0.9, learning_rate=0.00001, batch_size=128)
 
 #model = SAC('MlpPolicy', env, verbose=0, gamma=0.9, learning_rate=0.0001, batch_size=128)
-model.learn(total_timesteps=500000, callback=callback)
+model.learn(total_timesteps=100000, callback=callback)
 
 version = 0
 
