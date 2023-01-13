@@ -97,6 +97,7 @@ def plot_battery_life():
     plt.show()
 """
 def plot_pdr():
+    # TODO: Definitivamente necesitas otra manera de plotear, por favor consulta Seaborn, o piensa otra manera mas optima de representar resultados
     pdr_opt_1 = np.loadtxt('results/pdr_opt_1.txt', dtype=float, delimiter=',')
     pdr_opt_5 = np.loadtxt('results/pdr_opt_5.txt', dtype=float, delimiter=',')
     pdr_opt_10 = np.loadtxt('results/pdr_opt_10.txt', dtype=float, delimiter=',')

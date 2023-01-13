@@ -4,7 +4,6 @@ from gym import spaces
 import numpy as np
 import math
 from scipy import special as sp
-import random
 
 # Constants used through the training env
 T = 600  # seconds
@@ -22,7 +21,8 @@ BER = [0.00013895754823009532, 6.390550739301948e-05, 2.4369646975025416e-05, 7.
        1.8241669079988032e-06, 3.351781950877708e-07]
 DISTANCE = [2.6179598590188147, 3.2739303314239954, 4.094264386099205, 5.12014586944165, 6.403077879720777,
             8.00746841578568]
-ARRAY = np.array([0, 1, 2, 3, 4, 5])
+
+AVAILABLE_CONFIGS = np.array([0, 1, 2, 3, 4, 5])
 
 # Allowed actions (configurations)
 ALL_ACTIONS = {
@@ -75,11 +75,9 @@ def discard_lowest_g_packets(to_transmit, to_transmit_priorities, max_packets):
     return transmitted
 
 
-def heaviside(a, b):
-    if a > b:
+def heaviside(ber_th, ber):
+    if ber <= ber_th:
         return 1
-    elif a == b:
-        return 1.1
     else:
         return -1
 
@@ -87,12 +85,13 @@ def heaviside(a, b):
 def qfunc(x):
     return 0.5 - 0.5 * sp.erf(x / math.sqrt(2))
 
-
 def h_de(lora_param_sf, lora_param_bw):
     if lora_param_bw == 125 and lora_param_sf in [11, 12]:
         lora_param_de = 1
     else:
         lora_param_de = 0
+    # TODO: No harcodear nada (0, 6...), utilizar max() o  min() para leer automaticamente el 0 o 6
+    # TODO: Si otro dia amplias con otra config conlleva un trabajo enorme modificar el codigo
     if lora_param_sf == 6:
         lora_param_h = 1
     else:
@@ -125,7 +124,7 @@ class loraEnv(Env):
         self.N = N
         self.ber_th = BER[0]
         self.min = 0
-        self.max = np.amax(ARRAY)
+        self.max = np.amax(AVAILABLE_CONFIGS)
         self.q = Q_MAX
         self.e = CAPACITY
         self.n = self.N
@@ -133,37 +132,34 @@ class loraEnv(Env):
         self.action = 0
         self.i = 3
 
-        #self.max = max(self.sf, self.max_packages)
-        # Arrays to calculate pdr
-        # self.packets_attempted = np.zeros(self.n)  # to store the sum of the transmissions attempted by the external nodes
-        # self.packets_transmitted = np.zeros(self.n)  # to store the sum of the transmissions made by the external nodes
-
         # Define action and observation space
         # They must be gym.spaces objects
         self.action_space = spaces.Discrete(3)
-        self.observation_space = spaces.Box(low=self.min, high=self.max, shape=(2,), dtype=np.float64)  # cambiar
-        self.state = [ARRAY[self.i], self.ber_th]
-        print('self.state: ' + str(self.state))
+        # TODO Probar con multidiscret si no funciona. Aunque mejor Box.
+        self.observation_space = spaces.Box(low=self.min, high=self.max, shape=(2,), dtype=np.float64)
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th]
 
         self.pdr = 0
         self.prr = 0
         self.ber = 0
 
     def step(self, action):
-        # Called to take an action with the environment, it returns the next observation,
 
         reward = -10  # by defect
         self.action = action
 
         # Transform action (int) in the desired config and create variables (CR, SF, alpha, etc)
         if action == 0:
+            if self.i == 6:
+                pass
+            # TODO Por que primero incrementas y despoues disminuyes?
             self.i = self.i + 1
             if self.i == 6:
                 self.i = self.i - 1
             else:
                 self.i = self.i
         if action == 1:
-            self.i = self.i
+            pass
         if action == 2:
             self.i = self.i - 1
             if self.i == -1:
@@ -171,165 +167,103 @@ class loraEnv(Env):
             else:
                 self.i = self.i
 
-        print('Valor actual de i: ' + str(self.i))
         config = list(ALL_ACTIONS.values())[self.i]
         cr = config.get("CR")
-        print('cr: ' + str(cr))
         sf = config.get("SF")
-        print('sf: ' + str(sf))
         bw = config.get('BW')
-        print('bw: ' + str(bw))
         snr_lineal = config.get("SNR_lineal")
-        print('snr: ' + str(snr_lineal))
         max_packages = config.get("max_packages")
-        print('max_packages: ' + str(max_packages))
         txr = sf * bw / (math.pow(2, sf))
 
-        # Create an array with transmissions of external nodes with Bernoulli distribution
-        # Create an array with random priorities
         to_transmit = np.ones(self.n).astype(int)
-        print('To_transmit: ' + str(to_transmit))
-        #        self.packets_attempted = (self.packets_attempted + to_transmit).astype(int)
-        #        print('Packets_attempted: ' + str(self.packets_attempted))
-
         priorities = np.random.randint(low=1, high=4, size=self.n, dtype=int)
-        print('Priorities: ' + str(priorities))
-
         to_transmit_priorities = np.multiply(to_transmit, priorities)
-        print('To_transmit_priorities: ' + str(to_transmit_priorities))
 
-        # If Q = QMAX (transmit only during 1% of T), there is energy enough,
-        # and the frontier node has to transmit, that is to say, self.tx is 1,
-        # then out packet is transmitted together with the packets received from external nodes
-        if 1 == 1:
-            # max_packages = txr * Q * Q_MAX / PACKET_SIZE + 1  # Max number of packets agent node can transmit
+        if sum(to_transmit) > max_packages:
+            transmitted = discard_lowest_g_packets(to_transmit, to_transmit_priorities, max_packages)
+        else:
+            transmitted = to_transmit
 
-            if sum(to_transmit) > max_packages:
-                transmitted = discard_lowest_g_packets(to_transmit, to_transmit_priorities, max_packages)
-                print('Transmitted: ' + str(transmitted))
-            else:
-                transmitted = to_transmit
-                print('Transmitted: ' + str(transmitted))
+        # PDR local
+        self.pdr = np.sum(transmitted) / np.sum(to_transmit)
 
-            # PDR local
-            self.pdr = np.sum(transmitted) / np.sum(to_transmit)
-            print('PDR local: ' + str(self.pdr))
+        # BER
+        # self.ber = pow(10, alpha * math.exp(beta * snr))
+        self.ber = 0.5 * qfunc(math.sqrt(2 * pow(2, sf) * snr_lineal) - math.sqrt(1.386 * sf + 1.154))
 
-            # self.packets_transmitted = np.sum(transmitted)
+        # PRR
+        self.prr = (1 - self.ber) ** (PACKET_SIZE_BITS * sum(transmitted))
 
-            """
-            # PDR global
-            self.packets_transmitted = np.add(self.packets_transmitted, transmitted)
-            self.packets_attempted = np.add(self.packets_attempted, to_transmit)
-            self.pdr = np.sum(self.packets_transmitted) / np.sum(self.packets_attempted)
+        # Update q value
+        rest_action = ((PACKET_SIZE_BITS * sum(transmitted) / txr) / Q)
+        self.q = self.q - rest_action
 
-            print('PDR global: ' + str(self.pdr))
-            """
+        h, de = h_de(sf, bw)
+        crc = 1
+        payload = self.N * PACKET_SIZE_BYTES  # bytes
 
-            # BER
-            # self.ber = pow(10, alpha * math.exp(beta * snr))
-            self.ber = 0.5 * qfunc(math.sqrt(2 * pow(2, sf) * snr_lineal) - math.sqrt(1.386 * sf + 1.154))
-            print('BER: ' + str(self.ber))
+        # TODO: todo esto es constante para cada config, por que no lo calculas una sola vez antes de inicializar la clase? arriba del todo?
+        # TODO: Crea una function y ponlo todo arriba
+        t_tx = time_on_air(int(payload), sf, cr, crc, bw, h, de) / 1000
 
-            # PRR
-            self.prr = (1 - self.ber) ** (PACKET_SIZE_BITS * sum(transmitted))
-            print('PRR: ' + str(self.prr))
+        # Indicate battery type here
+        a_tx = 45 * 1e-3  # A
+        t_rx = 0.54  # seconds
+        a_rx = 15.2 * 1e-3  # A
+        t_idle = 1.27  # seconds
+        a_idle = 3 * 1e-3  # A
+        t_sleep = T - (t_idle + t_rx + t_tx)  # seconds, calculate sleep time by substracting busy values to T
+        a_sleep = 14 * 1e-6  # A
 
-            # Update q value
-            rest_action = ((PACKET_SIZE_BITS * sum(transmitted) / txr) / Q)
-            self.q = self.q - rest_action
+        c_tx = a_tx * t_tx / 3600  # Ah
+        c_rx = a_rx * t_rx / 3600  # Ah
+        c_idle = a_idle * t_idle / 3600  # Ah
+        c_sleep = a_sleep * t_sleep / 3600  # Ah
 
-            h, de = h_de(sf, bw)
-            crc = 1
-            payload = self.N * PACKET_SIZE_BYTES  # bytes
+        c_total = c_rx + c_tx + c_idle + c_sleep
 
-            t_tx = time_on_air(int(payload), sf, cr, crc, bw, h, de) / 1000
-            print('Time on air(s): ' + str(t_tx))
+        self.e = self.e - c_total
 
-            a_tx = 45 * 1e-3  # A
+        yearly = c_total * 6 * 24 * 365  # Ah yearly consumption
+        # We send a packet 6 times per hour, and a year have 24*365 hours
 
-            t_rx = 0.54  # seconds
-            a_rx = 15.2 * 1e-3  # A
+        battery = 13 * 0.39  # calculate the fraction of 13.000 mAh used having into account cutoff and voltage values
+        self.duration = battery / yearly  # divide the max battery available by the yearly amount, so we will obtain years
 
-            t_idle = 1.27  # seconds
-            a_idle = 3 * 1e-3  # A
+        # normalize values for reward (N=1)
+        # TODO: No hardcodear nada en el codigo, todo con funciones y relacionado, si luego cambias algo --> resultado incorrecto
+        ber_max = 0.00013895754823009532
+        ber_min = 3.351781950877708e-07
+        duration_max = 15.66505259225036
+        duration_min = 4.858807480488823
 
-            t_sleep = T - (t_idle + t_rx + t_tx)  # seconds, calculate sleep time by substracting busy values to T
-            a_sleep = 14 * 1e-6  # A
+        duration_norm = (self.duration - duration_min) / (duration_max - duration_min)
+        ber_norm = (self.ber - ber_min) / (ber_max - ber_min)
 
-            c_tx = a_tx * t_tx / 3600  # Ah
-            c_rx = a_rx * t_rx / 3600  # Ah
-            c_idle = a_idle * t_idle / 3600  # Ah
-            c_sleep = a_sleep * t_sleep / 3600  # Ah
-
-            c_total = c_rx + c_tx + c_idle + c_sleep
-            print('Consumo total de energía: ' + str(c_total))
-
-            self.e = self.e - c_total
-
-            yearly = c_total * 6 * 24 * 365  # Ah yearly consumption
-            # We send a packet 6 times per hour, and a year have 24*365 hours
-
-            battery = 13 * 0.39  # calculate the fraction of 13.000 mAh used having into account cutoff and voltage values
-            self.duration = battery / yearly  # divide the max battery available by the yearly amount, so we will obtain years
-            print("duración: " + str(self.duration))
-
-            print('self.ber_th: ' + str(self.ber_th))
-
-            # normalize values for reward (N=1)
-            ber_max = 0.00013895754823009532
-            ber_min = 3.351781950877708e-07
-            duration_max = 15.66505259225036
-            duration_min = 4.858807480488823
-
-            duration_norm = (self.duration - duration_min) / (duration_max - duration_min)
-            print('duración normalizada: ' + str(duration_norm))
-            ber_norm = (self.ber - ber_min) / (ber_max - ber_min)
-            print('ber normalizado: ' + str(ber_norm))
-
-            reward = duration_norm * heaviside(self.ber_th, self.ber)
-
-            print('recompensa: ' + str(reward))
-
+        #reward = duration_norm * heaviside(self.ber_th, self.ber) * (1/self.ber)
+        reward = self.duration
         # update state
-        self.state = [ARRAY[self.i], self.ber_th]
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th]
         observation = np.array(self.state)
-        print('Observation: ' + str(observation))
         info = {}
         done = False
         return observation, reward, done, info
 
-    def get_pdr(self):
-        return self.pdr
+    def getStatistics(self):
+        return [self.ber, self.ber_th, self.duration, self.prr, self.state]
 
-    def get_packets_tx(self):
-        return self.packets_transmitted
-
-    def get_prr(self):
-        return self.prr
-
-    def get_energy(self):
-        return self.e
-
-    def get_ber(self):
-        return self.ber
-
-    def get_battery_life(self):
-        return self.duration
 
     def reset(self):
         self.q = Q_MAX  # 706 at the beginning
         self.e = CAPACITY
         self.n = 1
-        # self.n = np.random.randint(1, self.N)
-        # self.packets_attempted = np.zeros((1, self.n))
-        # self.packets_transmitted = np.zeros((1, self.n))
         self.pdr = 0
         self.prr = 0
         self.ber = 0
         self.ber_th = np.random.choice(BER)
         self.i = np.random.randint(0, 6)
-        self.state = [ARRAY[self.i], self.ber_th]
+        # TODO: No hardcodear
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th]
         self.duration = 0
         observation = np.array(self.state)
         return observation
@@ -342,10 +276,9 @@ class loraEnv(Env):
 
     def set_ber(self, ber_th):
         self.ber_th = ber_th
-        self.state = [ARRAY[self.i], self.ber_th]
+        # TODO: No entiendo la siguiente linea de codigo
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th]
         observation = np.array(self.state)
         return observation
 
-    def get_nodes(self):
-        return self.n
 
