@@ -34,6 +34,8 @@ DURATION = [15.635346635989748, 14.452773648384722, 12.968427828954564, 10.47161
 
 AVAILABLE_CONFIGS = np.array([0, 1/5, 2/5, 3/5, 4/5, 1])
 
+#AVAILABLE_CONFIGS = np.array([0, 1, 2, 3, 4, 5])
+
 # Allowed actions (configurations)
 ALL_ACTIONS = {
     "a1": {'CR': 4 / 5, 'SF': 7, 'SNR': -7.5, 'BW': 125, 'SNR_lineal': 0.177827941,
@@ -95,6 +97,7 @@ def heaviside(ber_th, ber):
 
 def qfunc(x):
     return 0.5 - 0.5 * sp.erf(x / math.sqrt(2))
+
 
 def h_de(lora_param_sf, lora_param_bw):
     if lora_param_bw == 125 and lora_param_sf in [11, 12]:
@@ -167,14 +170,14 @@ class loraEnv(Env):
         self.n = self.N
         self.duration = 0
         self.action = 0
-        self.i = 0
+        self.i = 4
 
         # Define action and observation space
         # They must be gym.spaces objects
         self.action_space = spaces.Discrete(3)
         # TODO Probar con multidiscret si no funciona. Aunque mejor Box.
-        self.observation_space = spaces.Box(low=self.min, high=self.max, shape=(2,), dtype=np.float64)
-        #self.observation_space = spaces.MultiDiscrete([len(AVAILABLE_CONFIGS), len(BER_NORM)])
+        #self.observation_space = spaces.Box(low=self.min, high=self.max, shape=(2,), dtype=np.float64)
+        self.observation_space = spaces.MultiDiscrete([len(AVAILABLE_CONFIGS), len(BER_NORM)])
         self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th]
 
         self.pdr = 0
@@ -195,7 +198,7 @@ class loraEnv(Env):
         if action == 1:
             pass
         if action == 2:
-            if self.i == np.min(AVAILABLE_CONFIGS):
+            if self.i == np.amin(AVAILABLE_CONFIGS):
                 pass
             else:
                 self.i = self.i - 1
@@ -214,6 +217,7 @@ class loraEnv(Env):
 
         if sum(to_transmit) > max_packages:
             transmitted = discard_lowest_g_packets(to_transmit, to_transmit_priorities, max_packages)
+
         else:
             transmitted = to_transmit
 
@@ -249,8 +253,8 @@ class loraEnv(Env):
         ber_norm = (self.ber - ber_min) / (ber_max - ber_min)
 
         # Calculate reward
-        #reward = duration_norm * heaviside(self.ber_th, self.ber) * (1/self.ber)
-        reward = duration_norm * heaviside(self.ber_th, ber_norm)
+        reward = 10 * duration_norm * heaviside(self.ber_th, ber_norm)
+        #reward = (1 / c_total) * heaviside(self.ber_th, ber_norm)
 
         # update state
         self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th]

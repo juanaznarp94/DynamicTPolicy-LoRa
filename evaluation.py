@@ -19,14 +19,17 @@ def smooth(y, box_pts):
     y_smooth = np.convolve(y, box, mode='same')
     return y_smooth
 
+def normalize_data(data):
+    return (data - np.min(data)) / (np.max(data) - np.min(data))
+
 # Load model
-#model = PPO.load("logs/best_model.zip")
-model = PPO.load("lora_rl_sac_v0")
+model = PPO.load("logs/best_model.zip") # para cargar modelo que se haya generado en el solver
 # TODO: Test other algorithms too
 
 BER = [0.00013895754823009532, 6.390550739301948e-05, 2.4369646975025416e-05, 7.522516546093483e-06,
        1.8241669079988032e-06, 3.351781950877708e-07]
-BER_NORM = BER / np.linalg.norm(BER)
+
+BER_NORM = normalize_data(BER)
 
 env = loraEnv(1)
 state = env.reset()
@@ -69,5 +72,3 @@ def plot_ber_comparison(combine):
 
 combine = True
 plot_ber_comparison(combine)
-
-
