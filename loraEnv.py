@@ -253,7 +253,7 @@ class loraEnv(Env):
         ber_norm = (self.ber - ber_min) / (ber_max - ber_min)
 
         # Calculate reward
-        reward = 10 * duration_norm * heaviside(self.ber_th, ber_norm)
+        reward = duration_norm * heaviside(self.ber_th, ber_norm)
         #reward = (1 / c_total) * heaviside(self.ber_th, ber_norm)
 
         # update state
