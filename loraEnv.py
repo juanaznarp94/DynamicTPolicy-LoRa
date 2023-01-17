@@ -176,8 +176,8 @@ class loraEnv(Env):
         # They must be gym.spaces objects
         self.action_space = spaces.Discrete(3)
         # TODO Probar con multidiscret si no funciona. Aunque mejor Box.
-        #self.observation_space = spaces.Box(low=self.min, high=self.max, shape=(2,), dtype=np.float64)
-        self.observation_space = spaces.MultiDiscrete([len(AVAILABLE_CONFIGS), len(BER_NORM)])
+        self.observation_space = spaces.Box(low=self.min, high=self.max, shape=(2,), dtype=np.float64)
+        #self.observation_space = spaces.MultiDiscrete([len(AVAILABLE_CONFIGS), len(BER_NORM)])
         self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th]
 
         self.pdr = 0
