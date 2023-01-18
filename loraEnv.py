@@ -29,6 +29,9 @@ BER_NORM = normalize_data(BER)
 
 DISTANCE = [2.6179598590188147, 3.2739303314239954, 4.094264386099205, 5.12014586944165, 6.403077879720777,
             8.00746841578568]
+
+DISTANCE_NORM = normalize_data(DISTANCE)
+
 DURATION = [15.635346635989748, 14.452773648384722, 12.968427828954564, 10.47161281273549, 7.560400710355283,
             4.858807480488823]
 
@@ -39,17 +42,17 @@ AVAILABLE_CONFIGS = np.array([0, 1/5, 2/5, 3/5, 4/5, 1])
 # Allowed actions (configurations)
 ALL_ACTIONS = {
     "a1": {'CR': 4 / 5, 'SF': 7, 'SNR': -7.5, 'BW': 125, 'SNR_lineal': 0.177827941,
-           'max_packages': math.floor(222 / PACKET_SIZE_BYTES)},
+           'max_packages': math.floor(222 / PACKET_SIZE_BYTES), 'distance': 2.6179598590188147},
     "a2": {'CR': 4 / 5, 'SF': 8, 'SNR': -10, 'BW': 125, 'SNR_lineal': 0.1,
-           'max_packages': math.floor(222 / PACKET_SIZE_BYTES)},
+           'max_packages': math.floor(222 / PACKET_SIZE_BYTES), 'distance': 3.2739303314239954},
     "a3": {'CR': 4 / 5, 'SF': 9, 'SNR': -12.5, 'BW': 125, 'SNR_lineal': 0.0562341325,
-           'max_packages': math.floor(115 / PACKET_SIZE_BYTES)},
+           'max_packages': math.floor(115 / PACKET_SIZE_BYTES), 'distance': 4.094264386099205},
     "a4": {'CR': 4 / 5, 'SF': 10, 'SNR': -15, 'BW': 125, 'SNR_lineal': 0.0316227766,
-           'max_packages': math.floor(51 / PACKET_SIZE_BYTES)},
+           'max_packages': math.floor(51 / PACKET_SIZE_BYTES), 'distance': 5.12014586944165},
     "a5": {'CR': 4 / 5, 'SF': 11, 'SNR': -17.5, 'BW': 125, 'SNR_lineal': 0.0177827941,
-           'max_packages': math.floor(51 / PACKET_SIZE_BYTES)},
+           'max_packages': math.floor(51 / PACKET_SIZE_BYTES), 'distance': 6.403077879720777},
     "a6": {'CR': 4 / 5, 'SF': 12, 'SNR': -20, 'BW': 125, 'SNR_lineal': 0.01,
-           'max_packages': math.floor(51 / PACKET_SIZE_BYTES)}
+           'max_packages': math.floor(51 / PACKET_SIZE_BYTES), 'distance': 8.00746841578568}
 }
 """
     "a7": {'CR': 4 / 7, 'SF': 7, 'SNR': -7.5, 'BW': 125, 'SNR_lineal': 0.177827941,
@@ -88,8 +91,8 @@ def discard_lowest_g_packets(to_transmit, to_transmit_priorities, max_packets):
     return transmitted
 
 
-def heaviside(ber_th, ber):
-    if ber <= ber_th:
+def heaviside(a, b):
+    if b <= a:
         return 1
     else:
         return -1
@@ -163,6 +166,7 @@ class loraEnv(Env):
         # Class attributes
         self.N = N
         self.ber_th = BER_NORM[0]
+        self.distance_th = DISTANCE_NORM[0]
         self.min = 0
         self.max = np.amax(AVAILABLE_CONFIGS)
         self.q = Q_MAX
@@ -175,14 +179,14 @@ class loraEnv(Env):
         # Define action and observation space
         # They must be gym.spaces objects
         self.action_space = spaces.Discrete(3)
-        # TODO Probar con multidiscret si no funciona. Aunque mejor Box.
-        self.observation_space = spaces.Box(low=self.min, high=self.max, shape=(2,), dtype=np.float64)
+        self.observation_space = spaces.Box(low=self.min, high=self.max, shape=(3,), dtype=np.float64)
         #self.observation_space = spaces.MultiDiscrete([len(AVAILABLE_CONFIGS), len(BER_NORM)])
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th]
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th]
 
         self.pdr = 0
         self.prr = 0
         self.ber = 0
+        self.distance = 0
 
     def step(self, action):
 
@@ -210,6 +214,8 @@ class loraEnv(Env):
         snr_lineal = config.get("SNR_lineal")
         max_packages = config.get("max_packages")
         txr = sf * bw / (math.pow(2, sf))
+
+        self.distance = config.get("distance")
 
         to_transmit = np.ones(self.n).astype(int)
         priorities = np.random.randint(low=1, high=4, size=self.n, dtype=int)
@@ -248,23 +254,26 @@ class loraEnv(Env):
         ber_min = np.amin(BER)
         duration_max = np.amax(DURATION)
         duration_min = np.amin(DURATION)
+        distance_max = np.amax(DISTANCE)
+        distance_min = np.amin(DISTANCE)
 
         duration_norm = (self.duration - duration_min) / (duration_max - duration_min)
         ber_norm = (self.ber - ber_min) / (ber_max - ber_min)
+        distance_norm = (self.distance - distance_min) / (distance_max - distance_min)
 
         # Calculate reward
-        reward = duration_norm * heaviside(self.ber_th, ber_norm)
+        reward = duration_norm * heaviside(self.ber_th, ber_norm) + duration_norm*heaviside(distance_norm, self.distance_th)
         #reward = (1 / c_total) * heaviside(self.ber_th, ber_norm)
 
         # update state
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th]
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th]
         observation = np.array(self.state)
         info = {}
         done = False
         return observation, reward, done, info
 
     def getStatistics(self):
-        return [self.ber, self.ber_th, self.duration, self.prr, self.state]
+        return [self.ber, self.ber_th, self.distance, self.distance_th, self.duration, self.prr, self.state]
 
     def reset(self):
         self.q = Q_MAX  # 706 at the beginning
@@ -274,8 +283,9 @@ class loraEnv(Env):
         self.prr = 0
         self.ber = 0
         self.ber_th = np.random.choice(BER_NORM)
+        self.distance_th = np.random.choice(DISTANCE_NORM)
         self.i = np.random.randint(np.min(AVAILABLE_CONFIGS), len(AVAILABLE_CONFIGS))
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th]
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th]
         self.duration = 0
         observation = np.array(self.state)
         return observation
@@ -286,8 +296,16 @@ class loraEnv(Env):
         #observation = np.array(self.state)
         #return observation
 
-    def set_ber(self, ber_th):
+    def set_ber_distance(self, ber_th, distance_th):
         self.ber_th = ber_th
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th]
+        self.distance_th = distance_th
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th]
         observation = np.array(self.state)
         return observation
+
+    def set_distance(self, distance_th):
+        self.distance_th = distance_th
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th]
+        observation = np.array(self.state)
+        return observation
+
