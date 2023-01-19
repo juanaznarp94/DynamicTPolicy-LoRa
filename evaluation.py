@@ -8,11 +8,39 @@ import matplotlib.pyplot as plt
 from stable_baselines3 import PPO, A2C, TD3, SAC
 
 def combine_csv_directory(local_dir):
+    """
+    Not used anymore
+    :param local_dir:
+    :return:
+    """
     files = os.path.join(local_dir, "*.csv")
     files = glob.glob(files)
     df = pd.concat(map(pd.read_csv, files), ignore_index=True)
     df.to_csv(local_dir + "total.csv")
     return df
+
+def increasing_evaluation(local_dir):
+    """
+    This function simply evaluates the training environment using increasing BET_th and real distance measured over time
+    :param local_dir:
+    :return:
+    """
+    # EVALUATE AND SAVE RESULTS
+    header = ['ber', 'ber_th', 'distance', 'distance_th', 'battery_life', 'prr', 'SF']
+    with open(local_dir+'main_results.csv', 'w', encoding='UTF8', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+        for i, ber_th in enumerate(BER_TH_NORM):
+            state = env.set_ber_distance(ber_th, REAL_DISTANCE_NORM[i])
+            for k in range(100):
+                action, _state = model.predict(state)  # predecimos la acción más recomendada para ese estado
+                env.step(action)
+                ber, ber_norm, distance, distance_norm, duration, prr, state = env.getStatistics()
+                ber_th = BER_TH[int(np.where(BER_TH_NORM == ber_norm)[0])]
+                distance_th = REAL_DISTANCE[int(np.where(REAL_DISTANCE_NORM == distance_norm)[0])]
+                data_row = [ber, ber_th, distance, distance_th, duration, prr, state]
+                writer.writerow(data_row)
+
 
 def smooth(y, box_pts):
     box = np.ones(box_pts)/box_pts
@@ -22,75 +50,74 @@ def smooth(y, box_pts):
 def normalize_data(data):
     return (data - np.min(data)) / (np.max(data) - np.min(data))
 
-
 # Load model
 model = PPO.load("logs/best_model.zip")  # para cargar modelo que se haya generado en el solver
 
-BER = [0.00013895754823009532, 6.390550739301948e-05, 2.4369646975025416e-05, 7.522516546093483e-06,
+BER_TH = [0.00013895754823009532, 6.390550739301948e-05, 2.4369646975025416e-05, 7.522516546093483e-06,
        1.8241669079988032e-06, 3.351781950877708e-07]
+BER_TH_NORM = normalize_data(BER_TH)
 
-BER_NORM = normalize_data(BER)
-
-DISTANCE = [2.6179598590188147, 3.2739303314239954, 4.094264386099205, 5.12014586944165, 6.403077879720777,
+REAL_DISTANCE = [2.6179598590188147, 3.2739303314239954, 4.094264386099205, 5.12014586944165, 6.403077879720777,
             8.00746841578568]
-
-DISTANCE_NORM = normalize_data(DISTANCE)
+REAL_DISTANCE_NORM = normalize_data(REAL_DISTANCE)
 
 env = loraEnv(1)
 state = env.reset()
 
-def step_csv(state,ber_th):
-    header = ['ber', 'ber_th', 'distance', 'distance_th', 'battery_life', 'prr', 'SF']
-    with open('results/'+str(i)+'.csv', 'w', encoding='UTF8', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow(header)
-        state = env.set_ber_distance(ber_th, DISTANCE_NORM[i])
-        for k in range(100):
-            action, _state = model.predict(state)  # predecimos la acción más recomendada para ese estado
-            env.step(action)
-            ber, ber_norm, distance, distance_norm, duration, prr, state = env.getStatistics()
-            ber_th = BER[int(np.where(BER_NORM == ber_norm)[0])]
-            distance_th = DISTANCE[int(np.where(DISTANCE_NORM == distance_norm)[0])]
-            data_row = [ber, ber_th, distance, distance_th, duration, prr, state]
-            writer.writerow(data_row)
+# EVALUATE
+##############################
 
-
-# EVALUATE AND SAVE RESULTS
-for i, ber_th in enumerate(BER_NORM):
-    step_csv(state, ber_th)
-
-# PLOT
 local_dir = 'results/'
-combine_csv_directory(local_dir)
+increasing_evaluation(local_dir)
+data = pd.read_csv(local_dir + 'main_results.csv')
 
-
-def plot_ber_comparison():
-    data = pd.read_csv(local_dir + 'total.csv')
+# PLOT BER
+##############################
+def plot_ber_bars():
     fig, ax1 = plt.subplots(1, figsize=(8, 5))
-    sns.set_style("dark")
     sns.barplot(x='ber_th', y='ber', data=data,
                 palette='deep', capsize=0.05, errwidth=1, ax=ax1).set(xlabel='Target BER', ylabel='BER')
-    for i, ber_th in enumerate(BER[::-1]):
+    for i, ber_th in enumerate(BER_TH[::-1]):
         plt.hlines(y=ber_th, xmin=i-0.5, xmax=0.5+i, color='red', alpha=0.3)
     ax1.set_xticklabels(["3.35e-07", "1.82e-06", "7.52e-06", "2.43e-05", "6.39e-05", "0.000138"], fontsize=8)
     plt.tight_layout()
-    plt.savefig('results/comparison_ber_th.png', dpi=400)
+    plt.savefig(local_dir+'ber_bars.png', dpi=400)
     plt.show()
 
-
-def plot_distance_comparison():
-    data = pd.read_csv(local_dir + 'total.csv')
+def plot_ber_lines():
+    # EVALUATE AND SAVE RESULTS
     fig, ax1 = plt.subplots(1, figsize=(8, 5))
-    sns.set_style("dark")
-    sns.barplot(x='distance_th', y='distance', data=data,
-                palette='deep', capsize=0.05, errwidth=1, ax=ax1).set(xlabel='Target distance', ylabel='DISTANCE')
-    for i, distance_th in enumerate(DISTANCE[::-1]):
-        plt.hlines(y=distance_th, xmin=i-0.5, xmax=0.5+i, color='red', alpha=0.3)
-    ax1.set_xticklabels(["2.61", "3.27", "4.09", "5.12", "6.04", "8.01"], fontsize=8)
+    sns.lineplot(x=data.index, y='ber', data=data, label="Measured BER", alpha=.5, color='blue', ax=ax1)
+    sns.lineplot(x=data.index, y='ber_th', data=data, label="Target BER", alpha=.5,
+                color='red', ax=ax1).set(xlabel='Uplink messages', ylabel='BER')
     plt.tight_layout()
-    plt.savefig('results/comparison_distance_th.png', dpi=400)
+    plt.legend()
+    plt.savefig(local_dir+'ber_lines.png', dpi=400)
     plt.show()
 
-#combine = True
-#plot_ber_comparison()
-plot_distance_comparison()
+# PLOT DISTANCE
+##############################
+def plot_distance_bars():
+    fig, ax1 = plt.subplots(1, figsize=(8, 5))
+    sns.barplot(x='distance_th', y='distance', data=data,
+                palette='deep', capsize=0.05, errwidth=1, ax=ax1).set(xlabel='Target BER', ylabel='BER')
+    for i, ber_th in enumerate(BER_TH[::-1]):
+        plt.hlines(y=ber_th, xmin=i-0.5, xmax=0.5+i, color='red', alpha=0.3)
+    ax1.set_xticklabels(["3.35e-07", "1.82e-06", "7.52e-06", "2.43e-05", "6.39e-05", "0.000138"], fontsize=8)
+    plt.tight_layout()
+    plt.savefig(local_dir+'distance_bars.png', dpi=400)
+    plt.show()
+
+def plot_distance_lines():
+    # EVALUATE AND SAVE RESULTS
+    fig, ax1 = plt.subplots(1, figsize=(8, 5))
+    sns.lineplot(x=data.index, y='distance', data=data, label="Estimated Maximum distance", alpha=.5, color='blue', ax=ax1)
+    sns.lineplot(x=data.index, y='distance_th', data=data, label="Real distance", alpha=.5,
+                color='red', ax=ax1).set(xlabel='Uplink messages', ylabel='Distance (Km)')
+    plt.tight_layout()
+    plt.legend()
+    plt.savefig(local_dir+'distance_lines.png', dpi=400)
+    plt.show()
+
+plot_ber_lines()
+plot_distance_lines()
