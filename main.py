@@ -4,7 +4,7 @@ def main():
     try:
         print('INICIO')
         myEnv = loraEnv(1)
-        myEnv.step(2)
+        myEnv.step(0)
         print('FIN')
 
     except Exception as e:

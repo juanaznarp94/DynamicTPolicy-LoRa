@@ -1,3 +1,5 @@
+import random
+
 from gym import Env, spaces
 import numpy.random
 from gym import spaces
@@ -22,6 +24,7 @@ CAPACITY = 13  # Ah
 VOLTAGE = 3.6  # V
 CUT_OFF_VOLTAGE = 2.2  # V
 MAX_BATTERY_LEVEL = CAPACITY * (VOLTAGE - CUT_OFF_VOLTAGE)
+NODES = 10
 BER = [0.00013895754823009532, 6.390550739301948e-05, 2.4369646975025416e-05, 7.522516546093483e-06,
        1.8241669079988032e-06, 3.351781950877708e-07]
 
@@ -172,6 +175,7 @@ class loraEnv(Env):
         self.q = Q_MAX
         self.e = CAPACITY
         self.n = self.N
+        self.n_norm = self.N / NODES
         self.duration = 0
         self.action = 0
         self.i = 4
@@ -179,9 +183,9 @@ class loraEnv(Env):
         # Define action and observation space
         # They must be gym.spaces objects
         self.action_space = spaces.Discrete(3)
-        self.observation_space = spaces.Box(low=self.min, high=self.max, shape=(3,), dtype=np.float64)
+        self.observation_space = spaces.Box(low=self.min, high=self.max, shape=(4,), dtype=np.float64)
         #self.observation_space = spaces.MultiDiscrete([len(AVAILABLE_CONFIGS), len(BER_NORM)])
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th]
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th, self.n_norm]
 
         self.pdr = 0
         self.prr = 0
@@ -244,7 +248,7 @@ class loraEnv(Env):
         # Energy Consumption
         h, de = h_de(sf, bw)
         crc = 1
-        payload = self.N * PACKET_SIZE_BYTES  # bytes
+        payload = self.n * PACKET_SIZE_BYTES  # bytes
         t_tx = time_on_air(int(payload), sf, cr, crc, bw, h, de) / 1000
         c_total, self.duration = model_energy(t_tx)
         self.e = self.e - c_total
@@ -266,46 +270,57 @@ class loraEnv(Env):
         #reward = (1 / c_total) * heaviside(self.ber_th, ber_norm)
 
         # update state
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th]
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th, self.n_norm]
         observation = np.array(self.state)
         info = {}
         done = False
         return observation, reward, done, info
 
     def getStatistics(self):
-        return [self.ber, self.ber_th, self.distance, self.distance_th, self.duration, self.prr, self.state]
+        return [self.ber, self.ber_th, self.distance, self.distance_th, self.duration, self.prr, self.pdr,
+                self.n, self.state]
 
     def reset(self):
         self.q = Q_MAX  # 706 at the beginning
         self.e = CAPACITY
-        self.n = 1
+        self.n = random.randint(1, 10)
+        self.n_norm = self.n/NODES
         self.pdr = 0
         self.prr = 0
         self.ber = 0
         self.ber_th = np.random.choice(BER_NORM)
         self.distance_th = np.random.choice(DISTANCE_NORM)
         self.i = np.random.randint(np.min(AVAILABLE_CONFIGS), len(AVAILABLE_CONFIGS))
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th]
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th, self.n_norm]
         self.duration = 0
         observation = np.array(self.state)
         return observation
 
     def set_nodes(self, N):
         self.n = N
-        #self.state = [sf, snr_lineal, max_packages]
-        #observation = np.array(self.state)
-        #return observation
+        self.n_norm = N/NODES
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th, self.n_norm]
+        observation = np.array(self.state)
+        return observation
 
-    def set_ber_distance(self, ber_th, distance_th):
+    def set_ber_distance(self, ber_th, distance_th, N):
         self.ber_th = ber_th
         self.distance_th = distance_th
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th]
+        self.n = N
+        self.n_norm = N/NODES
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th, self.n_norm]
+        observation = np.array(self.state)
+        return observation
+
+    def set_ber(self, ber_th):
+        self.ber_th = ber_th
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th, self.n_norm]
         observation = np.array(self.state)
         return observation
 
     def set_distance(self, distance_th):
         self.distance_th = distance_th
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th]
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th, self.n_norm]
         observation = np.array(self.state)
         return observation
 

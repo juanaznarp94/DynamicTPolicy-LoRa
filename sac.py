@@ -109,7 +109,7 @@ log_dir = "logs/" # carpeta logs para meter todos los resultados
 os.makedirs(log_dir, exist_ok=True)
 
 # Don't forget that it has been load from RoadEnvAC, not RoadEnv
-env = loraEnv(1)
+env = loraEnv(10)
 """TASK update env and input parameters"""
 
 #### Validate the environment
@@ -140,7 +140,7 @@ callback = SaveOnBestTrainingRewardCallback(check_freq=10000, log_dir=log_dir, v
 model = PPO('MlpPolicy', env, verbose=0, gamma=0.9, learning_rate=0.0001, batch_size=512)
 #model = SAC('MlpPolicy', env, verbose=0, gamma=0.9, learning_rate=0.0001, batch_size=128)
 
-model.learn(total_timesteps=3000000, callback=callback)
+model.learn(total_timesteps=9000000, callback=callback)
 
 version = 0
 
