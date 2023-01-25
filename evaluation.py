@@ -8,6 +8,7 @@ from loraEnv import loraEnv
 import matplotlib.pyplot as plt
 from stable_baselines3 import PPO, A2C, TD3, SAC
 
+nodes = 5
 
 def combine_csv_directory(local_dir):
     """
@@ -34,7 +35,7 @@ def increasing_evaluation(local_dir):
         writer = csv.writer(f)
         writer.writerow(header)
         for i, ber_th in enumerate(BER_TH_NORM):
-            state = env.set_ber_distance(ber_th, REAL_DISTANCE_NORM[i], 5)
+            state = env.set_ber_distance(ber_th, REAL_DISTANCE_NORM[i], nodes)
             for k in range(100):
                 action, _state = model.predict(state)  # predecimos la acción más recomendada para ese estado
                 env.step(action)
@@ -57,7 +58,7 @@ def normalize_data(data):
 
 
 # Load model
-model = PPO.load("logs/best_model.zip")  # para cargar modelo que se haya generado en el solver
+model = A2C.load("logs/best_model.zip")  # para cargar modelo que se haya generado en el solver
 
 BER_TH = [0.00013895754823009532, 6.390550739301948e-05, 2.4369646975025416e-05, 7.522516546093483e-06,
           1.8241669079988032e-06, 3.351781950877708e-07]
@@ -89,6 +90,7 @@ def plot_ber_bars():
     for i, ber_th in enumerate(BER_TH[::-1]):
         plt.hlines(y=ber_th, xmin=i-0.5, xmax=0.5+i, color='red', alpha=0.3)
     ax1.set_xticklabels(["3.35e-07", "1.82e-06", "7.52e-06", "2.43e-05", "6.39e-05", "0.000138"], fontsize=8)
+    ax1.set_title(str(nodes) + ' nodes')
     plt.tight_layout()
     plt.savefig(local_dir+'ber_bars.png', dpi=400)
     plt.show()
@@ -103,6 +105,7 @@ def plot_ber_lines():
     plt.tight_layout()
     plt.legend()
     plt.savefig(local_dir+'ber_lines.png', dpi=400)
+    plt.title(str(nodes) + ' nodes')
     plt.show()
 
 
@@ -115,6 +118,7 @@ def plot_distance_bars():
     for i, ber_th in enumerate(BER_TH[::-1]):
         plt.hlines(y=ber_th, xmin=i-0.5, xmax=0.5+i, color='red', alpha=0.3)
     ax1.set_xticklabels(["3.35e-07", "1.82e-06", "7.52e-06", "2.43e-05", "6.39e-05", "0.000138"], fontsize=8)
+    ax1.set_title(str(nodes) + ' nodes')
     plt.tight_layout()
     plt.savefig(local_dir+'distance_bars.png', dpi=400)
     plt.show()
@@ -122,13 +126,14 @@ def plot_distance_bars():
 
 def plot_distance_lines():
     # EVALUATE AND SAVE RESULTS
-    fig, ax1 = plt.subplots(1, figsize=(8, 5))
+    fig, ax1 = plt.subplots(1, figsize=(8, 6))
     sns.lineplot(x=data.index, y='distance', data=data, label="Estimated Maximum distance", alpha=.5, color='blue', ax=ax1)
     sns.lineplot(x=data.index, y='distance_th', data=data, label="Real distance", alpha=.5,
                  color='red', ax=ax1).set(xlabel='Uplink messages', ylabel='Distance (Km)')
     plt.tight_layout()
     plt.legend()
     plt.savefig(local_dir+'distance_lines.png', dpi=400)
+    plt.title(str(nodes) + ' nodes')
     plt.show()
 
 
