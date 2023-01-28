@@ -7,8 +7,10 @@ import seaborn as sns
 from loraEnv import loraEnv
 import matplotlib.pyplot as plt
 from stable_baselines3 import PPO, A2C, TD3, SAC
+from sb3_contrib import RecurrentPPO
 
-nodes = 5
+
+nodes = 10
 
 def combine_csv_directory(local_dir):
     """
@@ -58,7 +60,7 @@ def normalize_data(data):
 
 
 # Load model
-model = A2C.load("logs/best_model.zip")  # para cargar modelo que se haya generado en el solver
+model = RecurrentPPO.load("logs/best_model.zip")  # para cargar modelo que se haya generado en el solver
 
 BER_TH = [0.00013895754823009532, 6.390550739301948e-05, 2.4369646975025416e-05, 7.522516546093483e-06,
           1.8241669079988032e-06, 3.351781950877708e-07]
@@ -114,10 +116,10 @@ def plot_ber_lines():
 def plot_distance_bars():
     fig, ax1 = plt.subplots(1, figsize=(8, 5))
     sns.barplot(x='distance_th', y='distance', data=data,
-                palette='deep', capsize=0.05, errwidth=1, ax=ax1).set(xlabel='Target BER', ylabel='BER')
-    for i, ber_th in enumerate(BER_TH[::-1]):
-        plt.hlines(y=ber_th, xmin=i-0.5, xmax=0.5+i, color='red', alpha=0.3)
-    ax1.set_xticklabels(["3.35e-07", "1.82e-06", "7.52e-06", "2.43e-05", "6.39e-05", "0.000138"], fontsize=8)
+                palette='deep', capsize=0.05, errwidth=1, ax=ax1).set(xlabel='Real distance', ylabel='distance')
+    for i, distance_th in enumerate(REAL_DISTANCE[::1]):
+        plt.hlines(y=distance_th, xmin=i-0.5, xmax=0.5+i, color='red', alpha=0.3)
+    ax1.set_xticklabels(["2.62", "3.27", "4.09", "5.12", "6.4", "8.01"], fontsize=8)
     ax1.set_title(str(nodes) + ' nodes')
     plt.tight_layout()
     plt.savefig(local_dir+'distance_bars.png', dpi=400)
@@ -137,5 +139,5 @@ def plot_distance_lines():
     plt.show()
 
 
-plot_ber_lines()
-plot_distance_lines()
+plot_ber_bars()
+plot_distance_bars()
