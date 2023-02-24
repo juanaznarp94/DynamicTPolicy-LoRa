@@ -1,9 +1,0 @@
-Entrenamiento con algoritmo PPO
-9.000.000 iteraciones
-1h y media entrenamiento 
-mi PC
-max_episode_steps=10
-n_envs=2
-gamma = 0.9 
-learning_rate = 0.0001 
-batch_size =51
