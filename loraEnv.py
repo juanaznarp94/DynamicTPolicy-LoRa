@@ -35,8 +35,8 @@ DISTANCE = [2.6179598590188147, 3.2739303314239954, 4.094264386099205, 5.1201458
 
 DISTANCE_NORM = normalize_data(DISTANCE)
 
-DURATION = [15.635346635989748, 14.452773648384722, 12.968427828954564, 10.47161281273549, 7.560400710355283,
-            4.858807480488823]
+DURATION_MAX = 15.635346635989748
+DURATION_MIN = 1.6864801977244452
 
 AVAILABLE_CONFIGS = np.array([0, 1/5, 2/5, 3/5, 4/5, 1])
 
@@ -178,7 +178,9 @@ class loraEnv(Env):
         self.n_norm = self.N / NODES
         self.duration = 0
         self.action = 0
-        self.i = 4
+        self.i = 0
+        self.t_tx = 0
+        self.c_total = 0
 
         # Define action and observation space
         # They must be gym.spaces objects
@@ -249,21 +251,22 @@ class loraEnv(Env):
         h, de = h_de(sf, bw)
         crc = 1
         payload = self.n * PACKET_SIZE_BYTES  # bytes
-        t_tx = time_on_air(int(payload), sf, cr, crc, bw, h, de) / 1000
-        c_total, self.duration = model_energy(t_tx)
-        self.e = self.e - c_total
+        self.t_tx = time_on_air(int(payload), sf, cr, crc, bw, h, de) / 1000
+        self.c_total, self.duration = model_energy(self.t_tx)
+        self.e = self.e - self.c_total
 
         # Normalize values for reward (N=1)
         ber_max = np.amax(BER)
         ber_min = np.amin(BER)
-        duration_max = np.amax(DURATION)
-        duration_min = np.amin(DURATION)
+        duration_max = DURATION_MAX
+        duration_min = DURATION_MIN
         distance_max = np.amax(DISTANCE)
         distance_min = np.amin(DISTANCE)
 
         duration_norm = (self.duration - duration_min) / (duration_max - duration_min)
         ber_norm = (self.ber - ber_min) / (ber_max - ber_min)
         distance_norm = (self.distance - distance_min) / (distance_max - distance_min)
+
 
         # Calculate reward
         reward = duration_norm * heaviside(self.ber_th, ber_norm) + duration_norm*heaviside(distance_norm, self.distance_th)
@@ -277,7 +280,7 @@ class loraEnv(Env):
         return observation, reward, done, info
 
     def getStatistics(self):
-        return [self.ber, self.ber_th, self.distance, self.distance_th, self.duration, self.prr, self.pdr,
+        return [self.ber, self.ber_th, self.distance, self.distance_th, self.duration, self.c_total, self.prr, self.pdr,
                 self.n, self.state]
 
     def reset(self):
