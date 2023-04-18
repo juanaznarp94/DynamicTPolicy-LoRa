@@ -23,55 +23,39 @@ PACKET_SIZE_BYTES = PACKET_SIZE_BITS / 8
 CAPACITY = 13  # Ah
 VOLTAGE = 3.6  # V
 CUT_OFF_VOLTAGE = 2.2  # V
-MAX_BATTERY_LEVEL = CAPACITY * (VOLTAGE - CUT_OFF_VOLTAGE)
+MAX_BATTERY_LEVEL = CAPACITY * (VOLTAGE - CUT_OFF_VOLTAGE) * 3600
 NODES = 10
-BER = [0.00013895754823009532, 6.390550739301948e-05, 2.4369646975025416e-05, 7.522516546093483e-06,
-       1.8241669079988032e-06, 3.351781950877708e-07]
 
-BER_NORM = normalize_data(BER)
+SNR = random.uniform(0.00316227766, 316.227766)
 
-DISTANCE = [2.6179598590188147, 3.2739303314239954, 4.094264386099205, 5.12014586944165, 6.403077879720777,
-            8.00746841578568]
+ALLOWED_TPS = [0.025119, 0.050119, 0.079433, 0.125893]
 
-DISTANCE_NORM = normalize_data(DISTANCE)
+DISTANCE = random.uniform(0, 13.5)
 
-DURATION_MAX = 15.635346635989748
-DURATION_MIN = 1.6864801977244452
-
-AVAILABLE_CONFIGS = np.array([0, 1/5, 2/5, 3/5, 4/5, 1])
-
-#AVAILABLE_CONFIGS = np.array([0, 1, 2, 3, 4, 5])
+AVAILABLE_CONFIGS = np.array([0, 1, 2, 3, 4, 5])
 
 # Allowed actions (configurations)
 ALL_ACTIONS = {
-    "a1": {'CR': 4 / 5, 'SF': 7, 'SNR': -7.5, 'BW': 125, 'SNR_lineal': 0.177827941,
-           'max_packages': math.floor(222 / PACKET_SIZE_BYTES), 'distance': 2.6179598590188147},
-    "a2": {'CR': 4 / 5, 'SF': 8, 'SNR': -10, 'BW': 125, 'SNR_lineal': 0.1,
-           'max_packages': math.floor(222 / PACKET_SIZE_BYTES), 'distance': 3.2739303314239954},
-    "a3": {'CR': 4 / 5, 'SF': 9, 'SNR': -12.5, 'BW': 125, 'SNR_lineal': 0.0562341325,
-           'max_packages': math.floor(115 / PACKET_SIZE_BYTES), 'distance': 4.094264386099205},
-    "a4": {'CR': 4 / 5, 'SF': 10, 'SNR': -15, 'BW': 125, 'SNR_lineal': 0.0316227766,
-           'max_packages': math.floor(51 / PACKET_SIZE_BYTES), 'distance': 5.12014586944165},
-    "a5": {'CR': 4 / 5, 'SF': 11, 'SNR': -17.5, 'BW': 125, 'SNR_lineal': 0.0177827941,
-           'max_packages': math.floor(51 / PACKET_SIZE_BYTES), 'distance': 6.403077879720777},
-    "a6": {'CR': 4 / 5, 'SF': 12, 'SNR': -20, 'BW': 125, 'SNR_lineal': 0.01,
-           'max_packages': math.floor(51 / PACKET_SIZE_BYTES), 'distance': 8.00746841578568}
+    "a1": {'CR': 4 / 5, 'SF': 7, 'SNR': -7.5, 'BW': 125, 'max_packages': math.floor(222 / PACKET_SIZE_BYTES)},
+    "a2": {'CR': 4 / 5, 'SF': 8, 'SNR': -10, 'BW': 125, 'max_packages': math.floor(222 / PACKET_SIZE_BYTES)},
+    "a3": {'CR': 4 / 5, 'SF': 9, 'SNR': -12.5, 'BW': 125, 'max_packages': math.floor(115 / PACKET_SIZE_BYTES)},
+    "a4": {'CR': 4 / 5, 'SF': 10, 'SNR': -15, 'BW': 125, 'max_packages': math.floor(51 / PACKET_SIZE_BYTES)},
+    "a5": {'CR': 4 / 5, 'SF': 11, 'SNR': -17.5, 'BW': 125, 'max_packages': math.floor(51 / PACKET_SIZE_BYTES)},
+    "a6": {'CR': 4 / 5, 'SF': 12, 'SNR': -20, 'BW': 125, 'max_packages': math.floor(51 / PACKET_SIZE_BYTES)}
 }
-"""
-    "a7": {'CR': 4 / 7, 'SF': 7, 'SNR': -7.5, 'BW': 125, 'SNR_lineal': 0.177827941,
-           'max_packages': math.floor(222 / PACKET_SIZE_BYTES)},
-    "a8": {'CR': 4 / 7, 'SF': 8, 'SNR': -10, 'BW': 125, 'SNR_lineal': 0.1,
-           'max_packages': math.floor(222 / PACKET_SIZE_BYTES)},
-    "a9": {'CR': 4 / 7, 'SF': 9, 'SNR': -12.5, 'BW': 125, 'SNR_lineal': 0.05623413251,
-           'max_packages': math.floor(115 / PACKET_SIZE_BYTES)},
-    "a10": {'CR': 4 / 7, 'SF': 10, 'SNR': -15, 'BW': 125, 'SNR_lineal': 0.0316227766,
-            'max_packages': math.floor(51 / PACKET_SIZE_BYTES)},
-    "a11": {'CR': 4 / 7, 'SF': 11, 'SNR': -17.5, 'BW': 125, 'SNR_lineal': 0.0177827941,
-            'max_packages': math.floor(51 / PACKET_SIZE_BYTES)},
-    "a12": {'CR': 4 / 7, 'SF': 12, 'SNR': -20, 'BW': 125, 'SNR_lineal': 0.01,
-            'max_packages': math.floor(51 / PACKET_SIZE_BYTES)}
-}
-"""
+
+def distance(sf, bw, pt):
+    bw = bw * 1000
+    c = 3 * (10 ** 8)  # speed of light (m/s)
+    f = 868 * (10 ** 6)  # LoRa frequency Europe (Hz)
+    snr_0 = 32  # value in lineal for SX1272 transceiver
+    nf = 4  # Noise figure in lineal (6 dB)
+    k = 1.380649 * (10 ** -23)  # Boltzmann constant (J/K)
+    t = 278  # temperature (K)
+    n = 3.1  # path loss exponent in urban area (2.7-3.5)
+    d = math.pow(math.pow(c / (4 * math.pi * f), 2) * (pt * math.pow(2, sf)) / (snr_0 * nf * k * t * bw), 1 / n) * 0.001
+    return d
+
 
 def discard_lowest_g_packets(to_transmit, to_transmit_priorities, max_packets):
     """
@@ -133,31 +117,15 @@ def time_on_air(payload_size: int, lora_param_sf, lora_param_cr, lora_param_crc,
     return t_pr + t_payload
 
 
-def model_energy(t_tx):
-
-    # Indicate battery type here
-    a_tx = 45 * 1e-3  # A
-    t_rx = 0.54  # seconds
-    a_rx = 15.2 * 1e-3  # A
-    t_idle = 1.27  # seconds
-    a_idle = 3 * 1e-3  # A
-    t_sleep = T - (t_idle + t_rx + t_tx)  # seconds, calculate sleep time by substracting busy values to T
-    a_sleep = 14 * 1e-6  # A
-
-    c_tx = a_tx * t_tx / 3600  # Ah
-    c_rx = a_rx * t_rx / 3600  # Ah
-    c_idle = a_idle * t_idle / 3600  # Ah
-    c_sleep = a_sleep * t_sleep / 3600  # Ah
-
-    c_total = c_rx + c_tx + c_idle + c_sleep
-
-    yearly = c_total * 6 * 24 * 365  # Ah yearly consumption
-    # We send a packet 6 times per hour, and a year have 24*365 hours
-
-    battery = 13 * 0.39  # calculate the fraction of 13.000 mAh used having into account cutoff and voltage values
-    duration = battery / yearly  # divide the max battery available by the yearly amount, so we will obtain years
-
-    return c_total, duration
+def model_energy(payload, MAX_BATTERY_LEVEL, T, h, de, sf, cr, bw, pt):
+    n_p = 8
+    t_pr = (4.25 + n_p) * pow(2, sf) / bw
+    p_sy = 8 + max(((8 * payload - 4 * sf + 44 - 20 * h) / (4 * (sf - 2 * de))) * (cr + 4), 0)
+    t_pd = p_sy * pow(2, sf) / bw
+    t = t_pr + t_pd
+    e_pkt = pt * t  # J or Ws using Pt = 13 dBm
+    battery_life = MAX_BATTERY_LEVEL * T / (e_pkt * 60 * 24 * 365)
+    return e_pkt, battery_life
 
 
 class loraEnv(Env):
@@ -168,10 +136,11 @@ class loraEnv(Env):
 
         # Class attributes
         self.N = N
-        self.ber_th = BER_NORM[0]
-        self.distance_th = DISTANCE_NORM[0]
-        self.min = 0
-        self.max = np.amax(AVAILABLE_CONFIGS)
+        self.sf = 7
+        self.snr_th = SNR
+        self.ber_th = 0.5 * qfunc(math.sqrt(2 * pow(2, self.sf) * self.snr_th) - math.sqrt(1.386 * self.sf + 1.154))
+        self.distance_th = DISTANCE
+        self.pt = ALLOWED_TPS[0]
         self.q = Q_MAX
         self.e = CAPACITY
         self.n = self.N
@@ -184,44 +153,40 @@ class loraEnv(Env):
 
         # Define action and observation space
         # They must be gym.spaces objects
-        self.action_space = spaces.Discrete(3)
-        self.observation_space = spaces.Box(low=self.min, high=self.max, shape=(4,), dtype=np.float64)
+        self.action_space = spaces.MultiDiscrete([len(ALL_ACTIONS), len(ALLOWED_TPS)])
+        self.observation_space = spaces.Box(low=np.array([0, 0, 0.00316227766, 0,
+                                                          1, 0.025119]), high=np.array([5, 0.5,
+                                                                                        316.227766, 13.5,
+                                                                                        10, 0.125893]), shape=(6,),
+                                            dtype=np.float64)
         #self.observation_space = spaces.MultiDiscrete([len(AVAILABLE_CONFIGS), len(BER_NORM)])
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th, self.n_norm]
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.snr_th, self.distance_th, self.n, self.pt]
 
         self.pdr = 0
         self.prr = 0
         self.ber = 0
+        self.snr = 0
         self.distance = 0
 
     def step(self, action):
 
         reward = -10  # by defect
-        self.action = action
 
         # Transform action (int) in the desired config and create variables (CR, SF, alpha, etc)
-        if action == 0:
-            if self.i == len(AVAILABLE_CONFIGS) - 1:
-                pass
-            else:
-                self.i = self.i + 1
-        if action == 1:
-            pass
-        if action == 2:
-            if self.i == np.amin(AVAILABLE_CONFIGS):
-                pass
-            else:
-                self.i = self.i - 1
-
+        self.i = action[0]
+        pt_w = action[1]
         config = list(ALL_ACTIONS.values())[self.i]
+        self.pt = ALLOWED_TPS[pt_w]
         cr = config.get("CR")
         sf = config.get("SF")
+        self.sf = sf
         bw = config.get('BW')
-        snr_lineal = config.get("SNR_lineal")
+        snr = config.get('SNR')
+        snr_lineal = 10**(snr/10)
         max_packages = config.get("max_packages")
         txr = sf * bw / (math.pow(2, sf))
 
-        self.distance = config.get("distance")
+        self.distance = distance(sf, bw, self.pt)
 
         to_transmit = np.ones(self.n).astype(int)
         priorities = np.random.randint(low=1, high=4, size=self.n, dtype=int)
@@ -236,9 +201,12 @@ class loraEnv(Env):
         # PDR local
         self.pdr = np.sum(transmitted) / np.sum(to_transmit)
 
+        # SNR
+        self.snr = snr_lineal
+
         # BER
-        # self.ber = pow(10, alpha * math.exp(beta * snr))
-        self.ber = 0.5 * qfunc(math.sqrt(2 * pow(2, sf) * snr_lineal) - math.sqrt(1.386 * sf + 1.154))
+        self.ber_th = 0.5 * qfunc(math.sqrt(2 * pow(2, sf) * self.snr_th) - math.sqrt(1.386 * sf + 1.154))
+        self.ber = 0.5 * qfunc(math.sqrt(2 * pow(2, sf) * self.snr) - math.sqrt(1.386 * sf + 1.154))
 
         # PRR
         self.prr = (1 - self.ber) ** (PACKET_SIZE_BITS * sum(transmitted))
@@ -250,38 +218,33 @@ class loraEnv(Env):
         # Energy Consumption
         h, de = h_de(sf, bw)
         crc = 1
-        payload = self.n * PACKET_SIZE_BYTES  # bytes
-        self.t_tx = time_on_air(int(payload), sf, cr, crc, bw, h, de) / 1000
-        self.c_total, self.duration = model_energy(self.t_tx)
+        payload = np.sum(transmitted) * PACKET_SIZE_BYTES  # bytes
+        #self.t_tx = time_on_air(int(payload), sf, cr, crc, bw, h, de) / 1000
+        self.c_total, self.duration = model_energy(payload, MAX_BATTERY_LEVEL, T, h, de, sf, cr, bw, self.pt)
         self.e = self.e - self.c_total
 
         # Normalize values for reward (N=1)
-        ber_max = np.amax(BER)
-        ber_min = np.amin(BER)
-        duration_max = DURATION_MAX
-        duration_min = DURATION_MIN
-        distance_max = np.amax(DISTANCE)
-        distance_min = np.amin(DISTANCE)
+        #duration_max = DURATION_MAX
+        #duration_min = DURATION_MIN
+        #distance_max = np.amax(DISTANCE)
+        #distance_min = np.amin(DISTANCE)
 
-        duration_norm = (self.duration - duration_min) / (duration_max - duration_min)
-        ber_norm = (self.ber - ber_min) / (ber_max - ber_min)
-        distance_norm = (self.distance - distance_min) / (distance_max - distance_min)
-
+        #duration_norm = (self.duration - duration_min) / (duration_max - duration_min)
+        #distance_norm = (self.distance - distance_min) / (distance_max - distance_min)
 
         # Calculate reward
-        reward = duration_norm * heaviside(self.ber_th, ber_norm) + duration_norm*heaviside(distance_norm, self.distance_th)
-        #reward = (1 / c_total) * heaviside(self.ber_th, ber_norm)
+        reward = self.duration * heaviside(self.snr_th, snr_lineal) + self.duration * heaviside(self.distance, self.distance_th) + self.duration * heaviside(self.ber, self.ber_th)
 
-        # update state
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th, self.n_norm]
+        # Update state
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.snr_th, self.distance_th, self.n, self.pt]
         observation = np.array(self.state)
         info = {}
         done = False
         return observation, reward, done, info
 
     def getStatistics(self):
-        return [self.ber, self.ber_th, self.distance, self.distance_th, self.duration, self.c_total, self.prr, self.pdr,
-                self.n, self.state]
+        return [self.ber, self.ber_th, self.snr, self.snr_th, self.distance, self.distance_th, self.duration,
+                self.c_total, self.prr, self.pdr, self.n, self.sf, self.e, self.pt]
 
     def reset(self):
         self.q = Q_MAX  # 706 at the beginning
@@ -291,10 +254,15 @@ class loraEnv(Env):
         self.pdr = 0
         self.prr = 0
         self.ber = 0
-        self.ber_th = np.random.choice(BER_NORM)
-        self.distance_th = np.random.choice(DISTANCE_NORM)
+        self.snr = 0
+        self.snr_th = SNR
         self.i = np.random.randint(np.min(AVAILABLE_CONFIGS), len(AVAILABLE_CONFIGS))
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th, self.n_norm]
+        config = list(ALL_ACTIONS.values())[self.i]
+        self.sf = config.get("SF")
+        self.ber_th = 0.5 * qfunc(math.sqrt(2 * pow(2, self.sf) * self.snr_th) - math.sqrt(1.386 * self.sf + 1.154))
+        self.distance_th = DISTANCE
+        self.pt = np.random.choice(ALLOWED_TPS)
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.snr_th, self.distance_th, self.n, self.pt]
         self.duration = 0
         observation = np.array(self.state)
         return observation
@@ -302,28 +270,29 @@ class loraEnv(Env):
     def set_nodes(self, N):
         self.n = N
         self.n_norm = N/NODES
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th, self.n_norm]
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.snr_th, self.distance_th, self.n, self.pt]
         observation = np.array(self.state)
         return observation
 
-    def set_ber_distance(self, ber_th, distance_th, N):
-        self.ber_th = ber_th
+    def set_ber_distance_snr(self, ber_th, snr_th, distance_th, N):
         self.distance_th = distance_th
+        self.ber_th = ber_th
+        self.snr_th = snr_th
         self.n = N
         self.n_norm = N/NODES
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th, self.n_norm]
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.snr_th, self.distance_th, self.n, self.pt]
         observation = np.array(self.state)
         return observation
 
     def set_ber(self, ber_th):
         self.ber_th = ber_th
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th, self.n_norm]
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.snr_th, self.distance_th, self.n, self.pt]
         observation = np.array(self.state)
         return observation
 
     def set_distance(self, distance_th):
         self.distance_th = distance_th
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.distance_th, self.n_norm]
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.snr_th, self.distance_th, self.n, self.pt]
         observation = np.array(self.state)
         return observation
 
