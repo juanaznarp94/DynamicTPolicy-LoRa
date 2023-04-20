@@ -69,11 +69,11 @@ def combine_csv_directory(local_dir):
 
 df = pd.read_csv("trajectory_gps.csv", sep=',', header=0)  # load dataset
 data = df[15:102]  # choosing a trajectory of 8 km
-vis = GPSVis(data_path=data,
-             map_path='map.png',  # Path to map downloaded from the OSM.
-             points=(47.6763, -122.3839, 47.5902, -122.2634))
-vis.create_image(color=(0, 0, 255), width=3)  # Set the color and the width of the GNSS tracks.
-vis.plot_map(output='save')
+#vis = GPSVis(data_path=data,
+#             map_path='map.png',  # Path to map downloaded from the OSM.
+#             points=(47.6763, -122.3839, 47.5902, -122.2634))
+#vis.create_image(color=(0, 0, 255), width=3)  # Set the color and the width of the GNSS tracks.
+#vis.plot_map(output='save')
 
 distances = []
 
@@ -134,8 +134,8 @@ def increasing_evaluation(local_dir, algorithm, model):
 
 
 model_ppo = PPO.load("logs/best_model.zip")
-model_a2c = A2C.load("logs/best_model_a2c_2.zip")
-model_rec = RecurrentPPO.load("logs/best_model_rec_2.zip")
+#model_a2c = A2C.load("logs/best_model_a2c_2.zip")
+#model_rec = RecurrentPPO.load("logs/best_model_rec_2.zip")
 
 BER_TH = [0.4, 0.00013895754823009532, 6.390550739301948e-05, 6.743237594015682e-05, 7.522516546093483e-06,
           1.8241669079988032e-06, 3.351781950877708e-07]
@@ -191,11 +191,11 @@ def plot_snr_comparison():
     fig = plt.figure(figsize=(5, 4))
     ax0 = fig.subplots(1, 1)
     for i, n in enumerate(data):
-        snr = smooth(n['snr_db'], 10)
+        snr = n['snr_db']
         if i >= 3:
-            sns.lineplot(ax=ax0, x=n.index, y=snr, data=n, label=labels[i], alpha=.5, color=colors[i], ls=':')
+            sns.lineplot(ax=ax0, x=n.index, y = snr, data=n, label=labels[i], alpha=.5, color=colors[i], ls=':')
         else:
-            sns.lineplot(ax=ax0, x=n.index, y=snr, data=n, label=labels[i], alpha=.5, color=colors[i])
+            sns.lineplot(ax=ax0, x=n.index, y=snr , data=n, label=labels[i], alpha=.5, color=colors[i])
     sns.lineplot(ax=ax0, x=n.index, y='snr_th_db', data=data[0], label=r'$SNR_{measured}$', alpha=1, color='red')
 
     ax0.text(x=4.7, y=6.3, s="A", color='red')
