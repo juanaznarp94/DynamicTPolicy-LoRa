@@ -118,7 +118,7 @@ def increasing_evaluation(local_dir, algorithm, model):
                     if 76 <= i <= 86:
                         state = env.set_ber_distance_snr(BER_TH[0], SNR_TH[7], REAL_DISTANCE[i], nodes)
 
-                    action, _state = model_rec.predict(state)  # predecimos la acción más recomendada para ese estado
+                    action, _state = model_ppo.predict(state)  # predecimos la acción más recomendada para ese estado
                     env.step(action)
 
                 ber, ber_th, snr, snr_th, distance, distance_th, duration, c_total, prr, pdr, N, state, e, pt = env.getStatistics()
@@ -133,9 +133,9 @@ def increasing_evaluation(local_dir, algorithm, model):
                 writer.writerow(data_row)
 
 
-model_ppo = PPO.load("logs/best_model_ppo_2.zip")
-model_a2c = A2C.load("logs/best_model_rec_2.zip")
-model_rec = RecurrentPPO.load("logs/best_model.zip")
+model_ppo = PPO.load("logs/best_model.zip")
+model_a2c = A2C.load("logs/best_model_a2c_2.zip")
+model_rec = RecurrentPPO.load("logs/best_model_rec_2.zip")
 
 BER_TH = [0.4, 0.00013895754823009532, 6.390550739301948e-05, 6.743237594015682e-05, 7.522516546093483e-06,
           1.8241669079988032e-06, 3.351781950877708e-07]
@@ -165,9 +165,9 @@ local_dir = 'results/scenario2/'
 
 
 def evaluate():
+    increasing_evaluation(local_dir, "PPO", model_ppo)
     #increasing_evaluation(local_dir, "A2C", model_a2c)
-    #increasing_evaluation(local_dir, "A2C", model_a2c)
-    increasing_evaluation(local_dir, "RecurrentPPO", model_rec)
+    #increasing_evaluation(local_dir, "RecurrentPPO", model_rec)
     #increasing_evaluation(local_dir, "SF7", model_rec)
     #increasing_evaluation(local_dir, "SF12", model_rec)
 
@@ -180,10 +180,10 @@ data_rec = pd.read_csv(local_dir + 'n_'+str(n)+'_RecurrentPPO.csv')
 data_SF7 = pd.read_csv(local_dir + 'n_'+str(n)+'_SF7.csv')
 data_SF12 = pd.read_csv(local_dir + 'n_'+str(n)+'_SF12.csv')
 
-data = [data_rec]
+data = [data_ppo]
 #data = [data_ppo, data_a2c, data_rec, data_SF7, data_SF12]
 colors = ['tab:blue', 'tab:green', 'tab:orange', 'tab:brown', 'tab:pink']
-labels = ["RecPPO", "PPO", "RecPPO", "Max", "Min"]
+labels = ["PPO", "PPO", "RecPPO", "Max", "Min"]
 
 
 def plot_snr_comparison():

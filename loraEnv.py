@@ -26,13 +26,13 @@ CUT_OFF_VOLTAGE = 2.2  # V
 MAX_BATTERY_LEVEL = CAPACITY * (VOLTAGE - CUT_OFF_VOLTAGE) * 3600
 NODES = 10
 
-BER = random.uniform(0, 0.5)
+BER = random.uniform(0, 0.3)
 
-SNR = random.uniform(0.00316227766, 316.227766)
+SNR = random.uniform(0.0316227766, 10)
 
-ALLOWED_TPS = [0.001585, 0.003162, 0.00631, 0.012589, 0.025119, 0.1]
+ALLOWED_TPS = [0.00631, 0.012589, 0.025119, 0.1]
 
-DISTANCE = random.uniform(0, 12.5)
+DISTANCE = random.uniform(0, 10)
 
 AVAILABLE_CONFIGS = np.array([0, 1, 2, 3, 4, 5, 6])
 
@@ -158,8 +158,8 @@ class loraEnv(Env):
         # Define action and observation space
         # They must be gym.spaces objects
         self.action_space = spaces.MultiDiscrete([len(ALL_ACTIONS), len(ALLOWED_TPS)])
-        self.observation_space = spaces.Box(low=np.array([0, 0, 0.00316227766, 0,
-                                                          1, 0.001585]), high=np.array([6, 0.5, 316.227766, 12.5,
+        self.observation_space = spaces.Box(low=np.array([0, 0, 0.0316227766, 0,
+                                                          1, 0.00631]), high=np.array([6, 0.3, 10, 10,
                                                                                         10, 0.1]), shape=(6,),
                                             dtype=np.float64)
         #self.observation_space = spaces.MultiDiscrete([len(AVAILABLE_CONFIGS), len(BER_NORM)])

@@ -138,12 +138,12 @@ env = make_vec_env(lambda: env, n_envs=1)
 
 callback = SaveOnBestTrainingRewardCallback(check_freq=10000, log_dir=log_dir, verbose=1)  # guarda el mejor modelo
 
-model = RecurrentPPO("MlpLstmPolicy", env, verbose=0, gamma=0.9, learning_rate=0.0001)
+#model = RecurrentPPO("MlpLstmPolicy", env, verbose=0, gamma=0.9, learning_rate=0.0001)
 #model = A2C('MlpPolicy', env, verbose=0, gamma=0.9, learning_rate=0.0001)
-#model = PPO('MlpPolicy', env, verbose=0, gamma=0.9, learning_rate=0.0001, batch_size=512)
+model = PPO('MlpPolicy', env, verbose=0, gamma=0.9, learning_rate=0.0001, batch_size=512)
 #model = SAC('MlpPolicy', env, verbose=0, gamma=0.9, learning_rate=0.0001, batch_size=128)
 
-model.learn(total_timesteps=3000000, callback=callback)
+model.learn(total_timesteps=1000000, callback=callback)
 
 version = 0
 
