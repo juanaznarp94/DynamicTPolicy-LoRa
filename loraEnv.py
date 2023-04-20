@@ -26,22 +26,26 @@ CUT_OFF_VOLTAGE = 2.2  # V
 MAX_BATTERY_LEVEL = CAPACITY * (VOLTAGE - CUT_OFF_VOLTAGE) * 3600
 NODES = 10
 
+BER = random.uniform(0, 0.5)
+
 SNR = random.uniform(0.00316227766, 316.227766)
 
-ALLOWED_TPS = [0.025119, 0.050119, 0.079433, 0.125893]
+ALLOWED_TPS = [0.001585, 0.003162, 0.00631, 0.012589, 0.025119, 0.1]
 
-DISTANCE = random.uniform(0, 13.5)
+DISTANCE = random.uniform(0, 12.5)
 
-AVAILABLE_CONFIGS = np.array([0, 1, 2, 3, 4, 5])
+AVAILABLE_CONFIGS = np.array([0, 1, 2, 3, 4, 5, 6])
+
 
 # Allowed actions (configurations)
 ALL_ACTIONS = {
-    "a1": {'CR': 4 / 5, 'SF': 7, 'SNR': -7.5, 'BW': 125, 'max_packages': math.floor(222 / PACKET_SIZE_BYTES)},
-    "a2": {'CR': 4 / 5, 'SF': 8, 'SNR': -10, 'BW': 125, 'max_packages': math.floor(222 / PACKET_SIZE_BYTES)},
-    "a3": {'CR': 4 / 5, 'SF': 9, 'SNR': -12.5, 'BW': 125, 'max_packages': math.floor(115 / PACKET_SIZE_BYTES)},
-    "a4": {'CR': 4 / 5, 'SF': 10, 'SNR': -15, 'BW': 125, 'max_packages': math.floor(51 / PACKET_SIZE_BYTES)},
-    "a5": {'CR': 4 / 5, 'SF': 11, 'SNR': -17.5, 'BW': 125, 'max_packages': math.floor(51 / PACKET_SIZE_BYTES)},
-    "a6": {'CR': 4 / 5, 'SF': 12, 'SNR': -20, 'BW': 125, 'max_packages': math.floor(51 / PACKET_SIZE_BYTES)}
+    "a1": {'DR': 0, 'CR': 4 / 5, 'SF': 12, 'SNR': -20, 'BW': 125, 'max_packages': math.floor(51 / PACKET_SIZE_BYTES)},
+    "a2": {'DR': 1, 'CR': 4 / 5, 'SF': 11, 'SNR': -17.5, 'BW': 125, 'max_packages': math.floor(51 / PACKET_SIZE_BYTES)},
+    "a3": {'DR': 2, 'CR': 4 / 5, 'SF': 10, 'SNR': -15, 'BW': 125, 'max_packages': math.floor(51 / PACKET_SIZE_BYTES)},
+    "a4": {'DR': 3, 'CR': 4 / 5, 'SF': 9, 'SNR': -12.5, 'BW': 125, 'max_packages': math.floor(115 / PACKET_SIZE_BYTES)},
+    "a5": {'DR': 4, 'CR': 4 / 5, 'SF': 8, 'SNR': -10, 'BW': 125, 'max_packages': math.floor(242 / PACKET_SIZE_BYTES)},
+    "a6": {'DR': 5, 'CR': 4 / 5, 'SF': 7, 'SNR': -7.5, 'BW': 125, 'max_packages': math.floor(242 / PACKET_SIZE_BYTES)},
+    "a7": {'DR': 6, 'CR': 4 / 5, 'SF': 7, 'SNR': -7.5, 'BW': 250, 'max_packages': math.floor(242 / PACKET_SIZE_BYTES)}
 }
 
 def distance(sf, bw, pt):
@@ -137,8 +141,8 @@ class loraEnv(Env):
         # Class attributes
         self.N = N
         self.sf = 7
-        self.snr_th = SNR
-        self.ber_th = 0.5 * qfunc(math.sqrt(2 * pow(2, self.sf) * self.snr_th) - math.sqrt(1.386 * self.sf + 1.154))
+        self.snr_measured = SNR
+        self.ber_th = BER
         self.distance_th = DISTANCE
         self.pt = ALLOWED_TPS[0]
         self.q = Q_MAX
@@ -155,12 +159,11 @@ class loraEnv(Env):
         # They must be gym.spaces objects
         self.action_space = spaces.MultiDiscrete([len(ALL_ACTIONS), len(ALLOWED_TPS)])
         self.observation_space = spaces.Box(low=np.array([0, 0, 0.00316227766, 0,
-                                                          1, 0.025119]), high=np.array([5, 0.5,
-                                                                                        316.227766, 13.5,
-                                                                                        10, 0.125893]), shape=(6,),
+                                                          1, 0.001585]), high=np.array([6, 0.5, 316.227766, 12.5,
+                                                                                        10, 0.1]), shape=(6,),
                                             dtype=np.float64)
         #self.observation_space = spaces.MultiDiscrete([len(AVAILABLE_CONFIGS), len(BER_NORM)])
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.snr_th, self.distance_th, self.n, self.pt]
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.snr_measured, self.distance_th, self.n, self.pt]
 
         self.pdr = 0
         self.prr = 0
@@ -202,11 +205,10 @@ class loraEnv(Env):
         self.pdr = np.sum(transmitted) / np.sum(to_transmit)
 
         # SNR
-        self.snr = snr_lineal
+        self.snr = snr_lineal  # SNR config lineal
 
         # BER
-        self.ber_th = 0.5 * qfunc(math.sqrt(2 * pow(2, sf) * self.snr_th) - math.sqrt(1.386 * sf + 1.154))
-        self.ber = 0.5 * qfunc(math.sqrt(2 * pow(2, sf) * self.snr) - math.sqrt(1.386 * sf + 1.154))
+        self.ber = 0.5 * qfunc(math.sqrt(2 * pow(2, sf) * self.snr_measured) - math.sqrt(1.386 * sf + 1.154))
 
         # PRR
         self.prr = (1 - self.ber) ** (PACKET_SIZE_BITS * sum(transmitted))
@@ -233,17 +235,17 @@ class loraEnv(Env):
         #distance_norm = (self.distance - distance_min) / (distance_max - distance_min)
 
         # Calculate reward
-        reward = self.duration * heaviside(self.snr_th, snr_lineal) + self.duration * heaviside(self.distance, self.distance_th) + self.duration * heaviside(self.ber, self.ber_th)
+        reward = self.duration * heaviside(self.snr_measured, self.snr) + self.duration * heaviside(self.distance, self.distance_th) + self.duration * heaviside(self.ber_th, self.ber)
 
         # Update state
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.snr_th, self.distance_th, self.n, self.pt]
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.snr_measured, self.distance_th, self.n, self.pt]
         observation = np.array(self.state)
         info = {}
         done = False
         return observation, reward, done, info
 
     def getStatistics(self):
-        return [self.ber, self.ber_th, self.snr, self.snr_th, self.distance, self.distance_th, self.duration,
+        return [self.ber, self.ber_th, self.snr, self.snr_measured, self.distance, self.distance_th, self.duration,
                 self.c_total, self.prr, self.pdr, self.n, self.sf, self.e, self.pt]
 
     def reset(self):
@@ -255,44 +257,41 @@ class loraEnv(Env):
         self.prr = 0
         self.ber = 0
         self.snr = 0
-        self.snr_th = SNR
+        self.snr_measured = SNR
+        self.ber_th = BER
         self.i = np.random.randint(np.min(AVAILABLE_CONFIGS), len(AVAILABLE_CONFIGS))
-        config = list(ALL_ACTIONS.values())[self.i]
-        self.sf = config.get("SF")
-        self.ber_th = 0.5 * qfunc(math.sqrt(2 * pow(2, self.sf) * self.snr_th) - math.sqrt(1.386 * self.sf + 1.154))
         self.distance_th = DISTANCE
         self.pt = np.random.choice(ALLOWED_TPS)
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.snr_th, self.distance_th, self.n, self.pt]
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.snr_measured, self.distance_th, self.n, self.pt]
         self.duration = 0
         observation = np.array(self.state)
         return observation
 
     def set_nodes(self, N):
         self.n = N
-        self.n_norm = N/NODES
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.snr_th, self.distance_th, self.n, self.pt]
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.snr_measured, self.distance_th, self.n, self.pt]
         observation = np.array(self.state)
         return observation
 
-    def set_ber_distance_snr(self, ber_th, snr_th, distance_th, N):
+    def set_ber_distance_snr(self, ber_th, snr_measured, distance_th, N):
         self.distance_th = distance_th
         self.ber_th = ber_th
-        self.snr_th = snr_th
+        self.snr_measured = snr_measured
         self.n = N
         self.n_norm = N/NODES
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.snr_th, self.distance_th, self.n, self.pt]
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.snr_measured, self.distance_th, self.n, self.pt]
         observation = np.array(self.state)
         return observation
 
     def set_ber(self, ber_th):
         self.ber_th = ber_th
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.snr_th, self.distance_th, self.n, self.pt]
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.snr_measured, self.distance_th, self.n, self.pt]
         observation = np.array(self.state)
         return observation
 
     def set_distance(self, distance_th):
         self.distance_th = distance_th
-        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.snr_th, self.distance_th, self.n, self.pt]
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th, self.snr_measured, self.distance_th, self.n, self.pt]
         observation = np.array(self.state)
         return observation
 

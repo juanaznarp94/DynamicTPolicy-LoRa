@@ -3,8 +3,8 @@ import numpy as np
 def main():
     try:
         print('INICIO')
-        myEnv = loraEnv(10)
-        myEnv.step(1)
+        myEnv = loraEnv(5)
+        myEnv.step((1, 0))
         print('FIN')
 
     except Exception as e:
