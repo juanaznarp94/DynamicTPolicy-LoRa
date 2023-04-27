@@ -3,10 +3,12 @@ import os, glob
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from loraEnv_ant import loraEnv
+from loraEnv import loraEnv
 import matplotlib.pyplot as plt
 from stable_baselines3 import PPO, A2C
 from sb3_contrib import RecurrentPPO
+import math
+
 
 def normalize_data(data):
     return (data - np.min(data)) / (np.max(data) - np.min(data))
@@ -15,26 +17,26 @@ def normalize_data(data):
 # INIT
 max_target_BER = 0.00013926357210214731
 min_target_BER = 5.378212320056908e-07
-BER_TH = [0.000326357210214731, 2.522355682123782e-05, 6.463452125501422e-05, 2.672568954563249e-06,
-          9.343752102752182e-06, 5.678212320056908e-07, 2.82568954563249e-05, 0.000126357210214731]
-BER_TH_NORM = normalize_data(BER_TH)
+SNR = 0.06309573445
+BER_TH = [0.00013895754823009532, 6.390550739301948e-05, 2.4369646975025416e-05, 7.522516546093483e-06,
+          1.8241669079988032e-06, 3.351781950877708e-07]
+
 REAL_DISTANCE = [2, 4, 6, 8]
-REAL_DISTANCE_NORM = normalize_data(REAL_DISTANCE)
 env = loraEnv(10)
 state = env.reset()
 local_dir = 'results/scenario1/'
 
 
 def increasing_evaluation(local_dir, algorithm, model):
-    header = ['ber', 'ber_th', 'distance', 'distance_th', 'battery_life', 'energy_cons', 'prr', 'N', 'energy',
-              'ber_diff', 'distance_diff']
+    header = ['ber', 'ber_th', 'snr', 'snr_db', 'snr_measured', 'snr_measured_db', 'distance', 'distance_th', 'duration',
+              'energy_cons', 'prr', 'pdr', 'N', 'SF', 'pt', 'ber_diff', 'distance_diff']
     for i, d in enumerate(REAL_DISTANCE):
         with open(local_dir + 'd_' + str(d) + '_' + algorithm + '.csv', 'w', encoding='UTF8', newline='') as f:
             writer = csv.writer(f)
             writer.writerow(header)
             env.reset()
-            for j, ber_th in enumerate(BER_TH_NORM):
-                state = env.set_ber_distance(BER_TH_NORM[j], REAL_DISTANCE_NORM[i], 1)
+            for j, ber_th in enumerate(BER_TH):
+                state = env.set_ber_distance_snr(BER_TH[j], SNR, REAL_DISTANCE[i], 1)
                 for k in range(100):
                     if algorithm == "SF7":
                         action = 0
@@ -45,11 +47,13 @@ def increasing_evaluation(local_dir, algorithm, model):
                     else:
                         action, _state = model.predict(state)
                         env.step(action)
-                    ber, ber_norm, distance, distance_norm, duration, c_total, prr, pdr, N, state, e = env.getStatistics()
-                    ber_th = BER_TH[int(np.where(BER_TH_NORM == ber_norm)[0])]
-                    distance_th = REAL_DISTANCE[int(np.where(REAL_DISTANCE_NORM == distance_norm)[0])]
-                    data_row = [ber, ber_th, distance, distance_th, duration, c_total, prr, N, e, ber - ber_th,
-                                distance - distance_th]
+                    ber, ber_th, snr, snr_th, distance, distance_th, duration, c_total, prr, pdr, N, SF, e, pt = env.getStatistics()
+                    snr_db = 10 * math.log10(snr)
+                    snr_th_db = 10 * math.log10(snr_th)
+                    #ber_th = BER_TH[int(np.where(BER_TH_NORM == ber_norm)[0])]
+                    #distance_th = REAL_DISTANCE[int(np.where(REAL_DISTANCE_NORM == distance_norm)[0])]
+                    data_row = [ber, ber_th, snr, snr_db, snr_th, snr_th_db, distance, distance_th, duration, c_total,
+                                prr, pdr, N, SF, pt, ber - ber_th, distance - distance_th]
                     writer.writerow(data_row)
 
 
@@ -58,32 +62,35 @@ def smooth(y, box_pts):
     y_smooth = np.convolve(y, box, mode='same')
     return y_smooth
 
+
 # Load model
-model_ppo = PPO.load("logs/best_model_ppo.zip")
-model_a2c = A2C.load("logs/best_model_a2c.zip")
-model_rec = RecurrentPPO.load("logs/best_model_rec.zip")
+model_ppo = PPO.load("logs/best_model.zip")
+#model_a2c = A2C.load("logs/best_model_a2c.zip")
+#model_rec = RecurrentPPO.load("logs/best_model_rec.zip")
 
 
 def evaluate():
     increasing_evaluation(local_dir, "PPO", model_ppo)
-    increasing_evaluation(local_dir, "A2C", model_a2c)
-    increasing_evaluation(local_dir, "RecurrentPPO", model_rec)
-    increasing_evaluation(local_dir, "SF7", model_rec)
-    increasing_evaluation(local_dir, "SF12", model_rec)
+    #increasing_evaluation(local_dir, "A2C", model_a2c)
+    #increasing_evaluation(local_dir, "RecurrentPPO", model_rec)
+    #increasing_evaluation(local_dir, "SF7", model_rec)
+    #increasing_evaluation(local_dir, "SF12", model_rec)
 
 
 # > EVALUATE - Uncomment to evaluate and get results again
 # > Results will be stored in results/scenario1 folder
-#evaluate()
+evaluate()
 
 d = 2
-data_ppo = pd.read_csv(local_dir + 'd_'+str(d)+'_PPO.csv')
-data_a2c = pd.read_csv(local_dir + 'd_'+str(d)+'_A2C.csv')
-data_rec = pd.read_csv(local_dir + 'd_'+str(d)+'_RecurrentPPO.csv')
-data_SF7 = pd.read_csv(local_dir + 'd_'+str(d)+'_SF7.csv')
-data_SF12 = pd.read_csv(local_dir + 'd_'+str(d)+'_SF12.csv')
+data_ppo = pd.read_csv(local_dir + 'd_' + str(d) + '_PPO.csv')
+#data_a2c = pd.read_csv(local_dir + 'd_' + str(d) + '_A2C.csv')
+#data_rec = pd.read_csv(local_dir + 'd_' + str(d) + '_RecurrentPPO.csv')
+#data_SF7 = pd.read_csv(local_dir + 'd_' + str(d) + '_SF7.csv')
+#data_SF12 = pd.read_csv(local_dir + 'd_' + str(d) + '_SF12.csv')
 
-data = [data_ppo, data_a2c, data_rec, data_SF7, data_SF12]
+data = [data_ppo]
+print(data_ppo['ber'])
+#data = [data_ppo, data_a2c, data_rec, data_SF7, data_SF12]
 colors = ['tab:blue', 'tab:green', 'tab:orange', 'tab:brown', 'tab:pink']
 labels = ["PPO", "A2C", "RecPPO", "Min", "Max"]
 
@@ -92,7 +99,7 @@ def plot_energy_comparison():
     fig1 = plt.figure(figsize=(5, 4))
     ax1 = fig1.subplots(1, 1)
     for i, d in enumerate(data):
-        battery = d['energy']*1000
+        battery = d['energy'] * 1000
         if i >= 3:
             sns.lineplot(ax=ax1, x=d.index, y=battery, data=d, label=labels[i], alpha=.5, color=colors[i], ls=':')
         else:
@@ -153,7 +160,7 @@ def plot_ber_bars_distances():
     ax0.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
 
     plt.tight_layout()
-    
+
     plt.savefig('results/s1_ber_diff_distances.png', dpi=400)
     plt.show()
 
@@ -192,7 +199,7 @@ def plot_sth_else():
 
 
 # > PLOT - Uncomment to plot figures
-#plot_ber_comparison()
-#plot_energy_comparison()
-plot_ber_bars_distances()
-#plot_sth_else()
+plot_ber_comparison()
+# plot_energy_comparison()
+#plot_ber_bars_distances()
+# plot_sth_else()

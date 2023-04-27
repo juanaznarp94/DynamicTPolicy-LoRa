@@ -176,9 +176,9 @@ class loraEnv(Env):
         # Define action and observation space
         # They must be gym.spaces objects
         self.action_space = spaces.MultiDiscrete([len(ALL_ACTIONS), len(ALLOWED_TPS)])
-        #self.observation_space = spaces.Box(low=0.0, high=1.0, shape=(6,), dtype=np.float64)
-        self.observation_space = spaces.MultiDiscrete([len(AVAILABLE_CONFIGS_NORM), len(BER_NORM), len(SNR_NORM),
-                                                       len(DISTANCE_NORM), NODES, len(ALLOWED_TPS_NORM)])
+        self.observation_space = spaces.Box(low=0.0, high=1.0, shape=(6,), dtype=np.float64)
+        #self.observation_space = spaces.MultiDiscrete([len(AVAILABLE_CONFIGS_NORM), len(BER_NORM), len(SNR_NORM),
+        #                                               len(DISTANCE_NORM), NODES, len(ALLOWED_TPS_NORM)])
         self.state = [AVAILABLE_CONFIGS_NORM[self.i], self.ber_th_norm, self.snr_measured_norm, self.distance_th_norm,
                       self.n_norm, self.pt_norm]
 
