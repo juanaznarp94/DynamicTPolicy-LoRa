@@ -8,8 +8,11 @@ import math
 from scipy import special as sp
 
 
-def normalize_data(data):
-    return (data - np.min(data)) / (np.max(data) - np.min(data))
+def normalize_value(value, arr):
+    arr_min = np.min(arr)
+    arr_max = np.max(arr)
+    normalized_value = (value - arr_min) / (arr_max - arr_min)
+    return normalized_value
 
 
 # Constants used through the training env
@@ -26,27 +29,15 @@ CUT_OFF_VOLTAGE = 2.2  # V
 MAX_BATTERY_LEVEL = CAPACITY * (VOLTAGE - CUT_OFF_VOLTAGE) * 3600
 NODES = 10
 
-BER = [0.00013895754823009532, 6.390550739301948e-05, 2.4369646975025416e-05, 7.522516546093483e-06,
-       1.8241669079988032e-06, 3.351781950877708e-07]
+BER = [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10]
 
-BER_NORM = normalize_data(BER)
-
-SNR = [0.01, 0.02511886432, 0.06309573445, 0.1584893192, 0.3981071706, 1, 2.511886432, 6.309573445, 15.84893192,
-       39.81071706]
-
-SNR_NORM = normalize_data(SNR)
+SNR = [0.01, 0.5, 1, 5, 10, 15, 20, 25, 30, 35]
 
 ALLOWED_TPS = [0.012589, 0.025119, 0.1]
 
-ALLOWED_TPS_NORM = normalize_data(ALLOWED_TPS)
-
 DISTANCE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-DISTANCE_NORM = normalize_data(DISTANCE)
-
-AVAILABLE_CONFIGS = np.array([0, 1, 2, 3, 4, 5])
-
-AVAILABLE_CONFIGS_NORM = normalize_data(AVAILABLE_CONFIGS)
+AVAILABLE_CONFIGS = np.array([0., 0.2, 0.4, 0.6, 0.8, 1.])
 
 DURATION_MAX = 32.178136874436944
 
@@ -154,15 +145,16 @@ class loraEnv(Env):
         super(loraEnv, self).__init__()
 
         # Class attributes
+        self.action = 0
         self.sf = 7
         self.snr_measured = SNR[0]
-        self.snr_measured_norm = SNR_NORM[0]
+        self.snr_measured_norm = normalize_value(self.snr_measured, SNR)
         self.ber_th = BER[0]
-        self.ber_th_norm = BER_NORM[0]
+        self.ber_th_norm = normalize_value(self.ber_th, BER)
         self.distance_th = DISTANCE[0]
-        self.distance_th_norm = DISTANCE_NORM[0]
+        self.distance_th_norm = normalize_value(self.distance_th, DISTANCE)
         self.pt = ALLOWED_TPS[0]
-        self.pt_norm = ALLOWED_TPS_NORM[0]
+        self.pt_norm = normalize_value(self.pt, ALLOWED_TPS)
         self.q = Q_MAX
         self.e = CAPACITY
         self.n = N
@@ -179,7 +171,7 @@ class loraEnv(Env):
         self.observation_space = spaces.Box(low=0.0, high=1.0, shape=(6,), dtype=np.float64)
         #self.observation_space = spaces.MultiDiscrete([len(AVAILABLE_CONFIGS_NORM), len(BER_NORM), len(SNR_NORM),
         #                                               len(DISTANCE_NORM), NODES, len(ALLOWED_TPS_NORM)])
-        self.state = [AVAILABLE_CONFIGS_NORM[self.i], self.ber_th_norm, self.snr_measured_norm, self.distance_th_norm,
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th_norm, self.snr_measured_norm, self.distance_th_norm,
                       self.n_norm, self.pt_norm]
 
         self.pdr = 0
@@ -191,13 +183,13 @@ class loraEnv(Env):
     def step(self, action):
 
         reward = -10  # by defect
-
+        self.action = action
         # Transform action (int) in the desired config and create variables (CR, SF, alpha, etc)
         self.i = action[0]
         pt_w = action[1]
         config = list(ALL_ACTIONS.values())[self.i]
         self.pt = ALLOWED_TPS[pt_w]
-        self.pt_norm = (self.pt - np.min(ALLOWED_TPS)) / (np.max(ALLOWED_TPS) - np.min(ALLOWED_TPS))
+        self.pt_norm = normalize_value(self.pt, ALLOWED_TPS)
         cr = config.get("CR")
         sf = config.get("SF")
         self.sf = sf
@@ -254,7 +246,7 @@ class loraEnv(Env):
         reward = duration_norm*heaviside(self.snr_measured, self.snr) + duration_norm*heaviside(self.distance, self.distance_th) + duration_norm*heaviside(self.ber_th, self.ber)
 
         # Update state
-        self.state = [AVAILABLE_CONFIGS_NORM[self.i], self.ber_th_norm, self.snr_measured_norm, self.distance_th_norm,
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th_norm, self.snr_measured_norm, self.distance_th_norm,
                       self.n_norm, self.pt_norm]
         observation = np.array(self.state)
         info = {}
@@ -275,15 +267,15 @@ class loraEnv(Env):
         self.ber = 0
         self.snr = 0
         self.snr_measured = random.choice(SNR)
-        self.snr_measured_norm = (self.snr_measured - np.min(SNR)) / (np.max(SNR) - np.min(SNR))
+        self.snr_measured_norm = normalize_value(self.snr_measured, SNR)
         self.ber_th = random.choice(BER)
-        self.ber_th_norm = (self.ber_th - np.min(BER)) / (np.max(BER) - np.min(BER))
+        self.ber_th_norm = normalize_value(self.ber_th, BER)
         self.i = np.random.randint(np.min(AVAILABLE_CONFIGS), len(AVAILABLE_CONFIGS))
         self.distance_th = random.choice(DISTANCE)
-        self.distance_th_norm = (self.distance_th - np.min(DISTANCE)) / (np.max(DISTANCE) - np.min(DISTANCE))
+        self.distance_th_norm = normalize_value(self.distance_th, DISTANCE)
         self.pt = np.random.choice(ALLOWED_TPS)
-        self.pt_norm = (self.pt - np.min(ALLOWED_TPS)) / (np.max(ALLOWED_TPS) - np.min(ALLOWED_TPS))
-        self.state = [AVAILABLE_CONFIGS_NORM[self.i], self.ber_th_norm, self.snr_measured_norm, self.distance_th_norm,
+        self.pt_norm = normalize_value(self.pt, ALLOWED_TPS)
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th_norm, self.snr_measured_norm, self.distance_th_norm,
                       self.n_norm, self.pt_norm]
         self.duration = 0
         observation = np.array(self.state)
@@ -292,41 +284,41 @@ class loraEnv(Env):
     def set_nodes(self, N):
         self.n = N
         self.n_norm = self.n/NODES
-        self.state = [AVAILABLE_CONFIGS_NORM[self.i], self.ber_th_norm, self.snr_measured_norm, self.distance_th_norm,
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th_norm, self.snr_measured_norm, self.distance_th_norm,
                       self.n_norm, self.pt_norm]
         observation = np.array(self.state)
         return observation
 
     def set_ber_distance_snr(self, ber_th, snr_measured, distance_th, N):
         self.distance_th = distance_th
-        self.distance_th_norm = (self.distance_th - np.min(DISTANCE)) / (np.max(DISTANCE) - np.min(DISTANCE))
+        self.distance_th_norm = normalize_value(self.distance_th, DISTANCE)
         self.ber_th = ber_th
-        self.ber_th_norm = (self.ber_th - np.min(BER)) / (np.max(BER) - np.min(BER))
+        self.ber_th_norm = normalize_value(self.ber_th, BER)
         self.snr_measured = snr_measured
-        self.snr_measured_norm = (self.snr_measured - np.min(SNR)) / (np.max(SNR) - np.min(SNR))
+        self.snr_measured_norm = normalize_value(self.snr_measured, SNR)
         self.n = N
         self.n_norm = N/NODES
-        self.state = [AVAILABLE_CONFIGS_NORM[self.i], self.ber_th_norm, self.snr_measured_norm, self.distance_th_norm,
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th_norm, self.snr_measured_norm, self.distance_th_norm,
                       self.n_norm, self.pt_norm]
         observation = np.array(self.state)
         return observation
 
     def set_ber(self, ber_th):
         self.ber_th = ber_th
-        self.ber_th_norm = (self.ber_th - np.min(BER)) / (np.max(BER) - np.min(BER))
-        self.state = [AVAILABLE_CONFIGS_NORM[self.i], self.ber_th_norm, self.snr_measured_norm, self.distance_th_norm,
+        self.ber_th_norm = normalize_value(self.ber_th, BER)
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th_norm, self.snr_measured_norm, self.distance_th_norm,
                       self.n_norm, self.pt_norm]
         observation = np.array(self.state)
         return observation
 
     def set_ber_distance(self, ber_th, distance_th, N):
         self.ber_th = ber_th
-        self.ber_th_norm = (self.ber_th - np.min(BER)) / (np.max(BER) - np.min(BER))
+        self.ber_th_norm = normalize_value(self.ber_th, BER)
         self.distance_th = distance_th
-        self.distance_th_norm = (self.distance_th - np.min(DISTANCE)) / (np.max(DISTANCE) - np.min(DISTANCE))
+        self.distance_th_norm = normalize_value(self.distance_th, DISTANCE)
         self.n = N
         self.n_norm = self.n / NODES
-        self.state = [AVAILABLE_CONFIGS_NORM[self.i], self.ber_th_norm, self.snr_measured_norm, self.distance_th_norm,
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th_norm, self.snr_measured_norm, self.distance_th_norm,
                       self.n_norm, self.pt_norm]
         observation = np.array(self.state)
         return observation
@@ -334,7 +326,7 @@ class loraEnv(Env):
     def set_distance(self, distance_th):
         self.distance_th = distance_th
         self.distance_th_norm = (self.distance_th - np.min(DISTANCE)) / (np.max(DISTANCE) - np.min(DISTANCE))
-        self.state = [AVAILABLE_CONFIGS_NORM[self.i], self.ber_th_norm, self.snr_measured_norm, self.distance_th_norm,
+        self.state = [AVAILABLE_CONFIGS[self.i], self.ber_th_norm, self.snr_measured_norm, self.distance_th_norm,
                       self.n_norm, self.pt_norm]
         observation = np.array(self.state)
         return observation
