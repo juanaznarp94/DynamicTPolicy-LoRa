@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Acosta-García"
+  given-names: "Laura"
+  orcid: "https://orcid.org/0000-0000-0000-0000"
+- family-names: "Aznar-Poveda"
+  given-names: "Juan"
+  orcid: "https://orcid.org/0000-0002-0879-6651"
+- family-names: "García-Sánchez"
+  given-names: "Antonio-Javier"
+  orcid: "https://orcid.org/0000-0001-5095-3035"
+- family-names: "García-Haro"
+  given-names: "Joan"
+  orcid: "https://orcid.org/0000-0003-0741-7530"
+- family-names: "Fahringer"
+  given-names: "Thomas"
+  orcid: "https://orcid.org/0000-0003-4293-1228"
+title: "Dynamic Transmission Policy for Enhancing LoRa
+Networks Performance: A Deep Reinforcement Learning
+Approach"
+version: 1.0.0
+doi: ------
+date-released: 2023-07-04
+url: "https://github.com/juanaznarp94/LoRaRL"
