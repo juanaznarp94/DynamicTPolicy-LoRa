@@ -12,4 +12,11 @@ over time. We evaluate the performance of the proposed algorithm in three differ
 Available trained models are ready to be used in the log folder.
 
 ### Requirements 
-% Add libraries here
+- Python Interpreter: Python 3.10
+- Library gym 0.21.0
+- Library matplotlib 3.5.1
+- Library numpy 1.23.4
+- Library pandas 1.4.3
+- Library scikit-learn 1.2.1
+- Library seaborn 0.12.2
+- Library stable-baselines3 1.7.0
