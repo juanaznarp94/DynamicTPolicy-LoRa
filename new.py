@@ -1,5 +1,4 @@
 import random
-
 from gym import Env, spaces
 import numpy.random
 from gym import spaces
@@ -38,6 +37,7 @@ def normalize_value(value, arr):
     normalized_value = (value - arr_min) / (arr_max - arr_min)
     return normalized_value
 
+
 def qfunc(x):
     return 0.5 - 0.5 * sp.erf(x / math.sqrt(2))
 
@@ -47,6 +47,7 @@ def heaviside(a, b):
         return 1
     else:
         return -1
+
 
 def discard_lowest_g_packets(to_transmit, to_transmit_priorities, max_packets):
     """
@@ -85,6 +86,7 @@ def h_de(lora_param_sf, lora_param_bw):
 def model_distance(pt, sf, bw):
     d = math.pow(math.pow(c / (4 * math.pi * f), 2) * (pt * math.pow(2, sf)) / (snr_0 * nf * k * t * (bw*1000)), 1 / n)
     return d * 0.001
+
 
 def model_energy(payload, MAX_BATTERY_LEVEL, T, h, de, sf, cr, bw, pt):
     n_p = 8
@@ -191,8 +193,9 @@ class loraEnv(Env):
         # PRR
         self.prr = (1 - self.ber) ** (PACKET_SIZE_BITS * sum(transmitted))
 
-        #DISTANCE
+        # Distance
         self.distance = distance
+        print(self.distance)
 
         # Energy Consumption
         h, de = h_de(sf, bw)
@@ -206,7 +209,7 @@ class loraEnv(Env):
         duration_norm = (self.duration - duration_min) / (duration_max - duration_min)
 
         reward = duration_norm*heaviside(self.snr_measured, self.snr) + duration_norm*heaviside(self.ber_th, self.ber) \
-                 + duration_norm*heaviside(self.distance, self.distance_th)
+            + duration_norm*heaviside(self.distance, self.distance_th)
 
         # Update state
         self.state = [CONFIGS[self.i], normalize_value(np.log10(self.ber_th), ber_values),
@@ -217,7 +220,6 @@ class loraEnv(Env):
         info = {}
         done = False
         return observation, reward, done, info
-
 
     def getStatistics(self):
         return [self.ber, self.ber_th, self.snr, self.snr_measured, self.distance, self.distance_th, self.duration,
