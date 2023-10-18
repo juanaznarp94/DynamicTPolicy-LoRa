@@ -6,14 +6,10 @@ import seaborn as sns
 from new import loraEnv
 import matplotlib.pyplot as plt
 from stable_baselines3 import PPO, A2C
-import decimal
 import random
-from scipy.stats import loguniform
 import math
 from scipy import special as sp
 from numpy import sin, cos, arccos, pi, round
-from scipy.stats import rayleigh
-from sb3_contrib import RecurrentPPO
 import matplotlib.ticker as mticker
 
 
@@ -35,6 +31,7 @@ n_ = 3.1  # path loss exponent in urban area (2.7-3.5)
 bw = [125000, 125000, 125000, 125000, 125000, 125000]  # Hz
 ALLOWED_TPS = [0.012589, 0.025119, 0.1]
 magnitudes = [-14, -13, -12, -11, -10, -9, -8, -7, -6, -5]
+
 
 def rad2deg(radians):
     degrees = radians * 180 / pi
@@ -67,6 +64,7 @@ def smooth(y, box_pts):
     y_smooth = np.convolve(y, box, mode='same')
     return y_smooth
 
+
 def qfunc(x):
     return 0.5 - 0.5 * sp.erf(x / math.sqrt(2))
 
@@ -90,10 +88,6 @@ distances = []
 for _ in range(88):
     random_number = round(random.uniform(6, 8), 2)
     distances.append(random_number)
-
-
-#SNR_TH = [11, 5, 0, -3, -7, -11, -14, -18]
-#SNR_TH = [5, 0, -4, -8, -13, -15, -17, -19]
 
 local_dir = 'results/scenario2/'
 
@@ -174,7 +168,6 @@ def evaluation_s3(local_dir, algorithm, model):
     snr_db_measured = 40
     #for n, nodes in enumerate(num_nodes):
     with open(local_dir + 'A2C_DPLN_s3.csv', 'w', encoding='UTF8', newline='') as f:
-    #with open(local_dir + 'PPO_prueba.csv', 'w', encoding='UTF8', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(header)
         env.reset()
@@ -477,10 +470,6 @@ def plot_snr_ber_comparison():
     sns.lineplot(ax=ax1, x=data_ADR.index, y=data_ADR['ber_th'], data=data_ADR, label='ADR', alpha=1, color='darkseagreen',
                  ls='-', linewidth=2)
 
-    #legend_colors = ax1.legend(handles=[plt.Line2D([], [], color='#89c1e6', linestyle='-', linewidth=2),
-    #                                    plt.Line2D([], [], color='#fccc91', linestyle='-', linewidth=2),
-    #                                    plt.Line2D([], [], color='darkseagreen', linestyle='-', linewidth=2)],
-    #                           labels=['PPO', 'A2C', 'ADR'], fontsize=10, loc=(0.045, 0.57))
     legend_styles = ax1.legend(handles=[plt.Line2D([], [], color='black', linestyle='-', linewidth=2),
                                         plt.Line2D([], [], color='black', linestyle=':', linewidth=2)],
                                labels=['$BER_{max}$', 'BER'], fontsize=10, loc='center left')
@@ -505,10 +494,6 @@ def plot_snr_ber_comparison():
     sns.lineplot(ax=ax2, x=data_ADR.index, y=data_ADR['distance'], data=data_ADR, label='ADR', alpha=1,
                  color='darkseagreen', ls='-', linewidth=2)
 
-    #legend_colors = ax2.legend(handles=[plt.Line2D([], [], color='#89c1e6', linestyle='-', linewidth=2),
-    #                                    plt.Line2D([], [], color='#fccc91', linestyle='-', linewidth=2),
-    #                                    plt.Line2D([], [], color='darkseagreen', linestyle='-', linewidth=2)],
-    #                           labels=['PPO', 'A2C', 'ADR'], fontsize=10, loc='best')
     legend_styles = ax2.legend(handles=[plt.Line2D([], [], color='black', linestyle='-', linewidth=2),
                                         plt.Line2D([], [], color='black', linestyle=':', linewidth=2)],
                                labels=['Maximum distance $d_{max}$', 'Distance $d$'], fontsize=10, loc='upper left')
@@ -738,71 +723,7 @@ def plot_scenario3_payload():
     plt.show()
 
 
-data_adr = pd.read_csv(local_dir + 'ADR.csv')
-data_a2c = pd.read_csv(local_dir + 'A2C_DPLN.csv')
-data_ppo = pd.read_csv(local_dir + 'DPLN.csv')
-
-count_adr_ber = 0
-count_adr_snr = 0
-count_a2c_ber = 0
-count_a2c_snr = 0
-count_ppo_ber = 0
-count_ppo_snr = 0
-
-# Iterar sobre las filas del DataFrame data_ppo
-for index, row in data_adr.iterrows():
-    if row['ber'] > row['ber_th']:
-        count_adr_ber += 1
-
-for index, row in data_a2c.iterrows():
-    if row['ber'] > row['ber_th']:
-        count_a2c_ber += 1
-
-for index, row in data_ppo.iterrows():
-    if row['ber'] > row['ber_th']:
-        count_ppo_ber += 1
-
-for index, row in data_adr.iterrows():
-    if row['snr_measured'] < row['snr']:
-        count_adr_snr += 1
-
-for index, row in data_a2c.iterrows():
-    if row['snr_measured'] < row['snr']:
-        count_a2c_snr += 1
-
-for index, row in data_ppo.iterrows():
-    if row['snr_measured'] < row['snr']:
-        count_ppo_snr += 1
-
-# Imprimir los resultados
-#print("Número de veces que 'ber' es mayor que 'ber_th' en data_adr:", count_adr_ber)
-#print("Número de veces que 'snr' es menor que 'snr_measured' en data_adr:", count_adr_snr)
-#print("Número de veces que 'ber' es mayor que 'ber_th' en data_ppo:", count_ppo_ber)
-#print("Número de veces que 'snr' es menor que 'snr_measured' en data_ppo:", count_ppo_snr)
-#print("Número de veces que 'ber' es mayor que 'ber_th' en data_a2c:", count_a2c_ber)
-#print("Número de veces que 'snr' es menor que 'snr_measured' en data_a2c:", count_a2c_snr)
-
-#print("Número de veces que 'ber' es mayor que 'ber_th' en data_a2c:", count_a2c)
-
-"""
-count_ppo = 0
-count_a2c = 0
-
-# Iterar sobre las filas del DataFrame data_ppo
-for index, row in data_ppo.iterrows():
-    if row['snr_measured'] < row['snr']:
-        count_ppo += 1
-
-# Iterar sobre las filas del DataFrame data_a2c
-for index, row in data_a2c.iterrows():
-    if row['snr_measured'] < row['snr']:
-        count_a2c += 1
-
-# Imprimir los resultados
-print("Número de veces que 'snr_measured' es menor que 'snr' en data_ppo:", count_ppo)
-print("Número de veces que 'snr_measured' es menor que 'snr' en data_a2c:", count_a2c)
-"""
 plot_snr_ber_comparison()
-#plot_comparative_config()
-#plot_ber_energy_magnitudes()
-#plot_scenario3_payload()
+plot_comparative_config()
+plot_ber_energy_magnitudes()
+plot_scenario3_payload()
