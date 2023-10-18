@@ -14,6 +14,8 @@ from scipy import special as sp
 from numpy import sin, cos, arccos, pi, round
 from scipy.stats import rayleigh
 from sb3_contrib import RecurrentPPO
+import matplotlib.ticker as mticker
+
 
 # INIT
 latitud_gw = 47.66577
@@ -82,10 +84,9 @@ for i in range(len(data)):
 distances[0] = 0.05
 SNR_TH = []
 
-BER_TH = [1e-16, 1e-15, 1e-14, 1e-13, 1e-12, 1e-11, 1e-10, 1e-09, 1e-08, 1e-07, 1e-06, 1e-05]
+BER_TH = [1e-16,1e-15, 1e-14,1e-13, 1e-12, 1e-11, 1e-10, 1e-09, 1e-08, 1e-07, 1e-06, 1e-05]
 
 distances = []
-
 for _ in range(88):
     random_number = round(random.uniform(6, 8), 2)
     distances.append(random_number)
@@ -99,14 +100,15 @@ local_dir = 'results/scenario2/'
 env = loraEnv(1)
 
 model_ppo = PPO.load("logs/best_model.zip")
+model_a2c = A2C.load(os.path.join("logs/lora_rl_a2c_vuibk.zip"), env=env, custom_objects = {'observation_space': env.observation_space,
+                                                                                     'action_space': env.action_space})
 
-
-def evaluation(local_dir, algorithm, model, ber_th):
+def evaluation_s2(local_dir, algorithm, model, ber_th):
     header = ['ber', 'ber_th', 'snr', 'snr_measured', 'distance', 'distance_th', 'duration', 'state', 'pt',
-              'energy_cons', 'e', 'sf']
+              'energy_cons', 'e', 'sf', 'nodes']
     snr_db_measured = 40
     #for n, nodes in enumerate(num_nodes):
-    with open(local_dir + str(ber_th) + '_d6_.csv', 'w', encoding='UTF8', newline='') as f:
+    with open(local_dir + str(ber_th) + '_A2C_d6.csv', 'w', encoding='UTF8', newline='') as f:
     #with open(local_dir + 'PPO_prueba.csv', 'w', encoding='UTF8', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(header)
@@ -137,8 +139,27 @@ def evaluation(local_dir, algorithm, model, ber_th):
                 env.step(action)
             else:
                 state = env.set_ber_snr_distance(ber_th, snr_db_measured, dist, 1)
-                action, _state = model_ppo.predict(state)  # predecimos la acción más recomendada para ese estado
+                action, _state = model_ppo.predict(state)
                 env.step(action)
+                """
+                if i <= 22:
+                    ber_th = BER_TH[0]
+                    nodes = 1
+                    state = env.set_ber_snr_distance(ber_th, snr_db_measured, dist, nodes)
+                    action, _state = model_ppo.predict(state)
+                    env.step(action)
+                if i > 22 and i <= 62:
+                    ber_th = BER_TH[1]
+                    nodes = 1
+                    state = env.set_ber_snr_distance(ber_th, snr_db_measured, dist, nodes)
+                    action, _state = model_ppo.predict(state)
+                    env.step(action)
+                if i > 62:
+                    ber_th = BER_TH[2]
+                    nodes = 1
+                    state = env.set_ber_snr_distance(ber_th, snr_db_measured, dist, nodes)
+                    action, _state = model_ppo.predict(state)
+                    """
 
             ber, ber_max, snr, snr_db, distance, distance_th, duration, state, pt_d, energy, N, ber_diff, \
             distance_diff, energy_cons, sf = env.getStatistics()
@@ -147,26 +168,111 @@ def evaluation(local_dir, algorithm, model, ber_th):
             writer.writerow(data_row)
 
 
+def evaluation_s3(local_dir, algorithm, model):
+    header = ['ber', 'ber_th', 'snr', 'snr_measured', 'distance', 'distance_th', 'duration', 'state', 'pt',
+              'energy_cons', 'e', 'sf', 'nodes']
+    snr_db_measured = 40
+    #for n, nodes in enumerate(num_nodes):
+    with open(local_dir + 'A2C_DPLN_s3.csv', 'w', encoding='UTF8', newline='') as f:
+    #with open(local_dir + 'PPO_prueba.csv', 'w', encoding='UTF8', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+        env.reset()
+        action = (0, 0)
+        env.step(action)
+        for i, dist in enumerate(distances):
+            pt = action[1]
+            pt_w = ALLOWED_TPS[pt]
+            Lpath = ((4 * math.pi * frec / c) ** 2) * ((dist * 1000) ** n_)
+            snr_meas = pt_w / (Lpath * nf * k * t * bw[0])
+            snr_db_measured = 10 * math.log10(snr_meas) + 1
+            if algorithm == "SF7":
+                action = (5, 0)
+                pt = action[1]
+                pt_w = ALLOWED_TPS[pt]
+                Lpath = ((4 * math.pi * frec / c) ** 2) * ((dist * 1000) ** n_)
+                snr_meas = pt_w / (Lpath * nf * k * t * bw[0])
+                snr_db_measured = 10 * math.log10(snr_meas) + 1
+                env.step(action)
+            elif algorithm == "SF12":
+                action = (0, 0)
+                pt = action[1]
+                pt_w = ALLOWED_TPS[pt]
+                Lpath = ((4 * math.pi * frec / c) ** 2) * ((dist * 1000) ** n_)
+                snr_meas = pt_w / (Lpath * nf * k * t * bw[0])
+                snr_db_measured = 10 * math.log10(snr_meas) + 1
+                env.step(action)
+            else:
+                if i <= 15:
+                    ber_th = BER_TH[0]
+                    nodes = 1
+                    state = env.set_ber_snr_distance(ber_th, snr_db_measured, dist, nodes)
+                    action, _state = model_ppo.predict(state)
+                    env.step(action)
+                if i > 15 and i<= 22:
+                    ber_th = BER_TH[0]
+                    nodes = 3
+                    state = env.set_ber_snr_distance(ber_th, snr_db_measured, dist, nodes)
+                    action, _state = model_ppo.predict(state)
+                    env.step(action)
+                if i > 22 and i <= 33:
+                    ber_th = BER_TH[1]
+                    nodes = 3
+                    state = env.set_ber_snr_distance(ber_th, snr_db_measured, dist, nodes)
+                    action, _state = model_ppo.predict(state)
+                    env.step(action)
+                if i > 33 and i <= 51:
+                    ber_th = BER_TH[1]
+                    nodes = 2
+                    state = env.set_ber_snr_distance(ber_th, snr_db_measured, dist, nodes)
+                    action, _state = model_ppo.predict(state)
+                    env.step(action)
+                if i > 51 and i <= 62:
+                    ber_th = BER_TH[1]
+                    nodes = 4
+                    state = env.set_ber_snr_distance(ber_th, snr_db_measured, dist, nodes)
+                    action, _state = model_ppo.predict(state)
+                    env.step(action)
+                if i > 62 and i <= 64:
+                    ber_th = BER_TH[2]
+                    nodes = 4
+                    state = env.set_ber_snr_distance(ber_th, snr_db_measured, dist, nodes)
+                    action, _state = model_ppo.predict(state)
+                if i > 64:
+                    ber_th = BER_TH[2]
+                    nodes = 1
+                    state = env.set_ber_snr_distance(ber_th, snr_db_measured, dist, nodes)
+                    action, _state = model_ppo.predict(state)
+                    env.step(action)
+
+            ber, ber_max, snr, snr_db, distance, distance_th, duration, state, pt_d, energy, N, ber_diff, \
+            distance_diff, energy_cons, sf = env.getStatistics()
+            data_row = [ber, ber_th, snr, snr_db_measured, distance, distance_th, duration, state, ALLOWED_TPS[pt],
+                        energy_cons, energy, sf, nodes]
+            writer.writerow(data_row)
+
+
 def evaluate(ber):
-    evaluation(local_dir, "PPO", model_ppo, ber)
+    evaluation_s2(local_dir, "A2C", model_a2c, ber)
     #evaluation(local_dir, "A2C", model_a2c)
     #evaluation(local_dir, "RecurrentPPO", model_rec)
     #evaluation(local_dir, "SF7", model_ppo)
     #evaluation(local_dir, "SF12", model_ppo)
 
 
-for i, ber in enumerate(BER_TH):
-    evaluate(ber)
+#for i, ber in enumerate(BER_TH):
+#    evaluate(ber)
 
-data_ppo = pd.read_csv(local_dir + 'n_1_PPO_prueba.csv')
+data_ppo = pd.read_csv(local_dir + 'DPLN.csv')
+data_a2c = pd.read_csv(local_dir + 'A2C_DPLN.csv')
 data_ADR = pd.read_csv(local_dir + 'ADR.csv')
 #data_SF7 = pd.read_csv(local_dir + 'n_1_SF7.csv')
 #data_SF12 = pd.read_csv(local_dir + 'n_1_SF12.csv')
 
 
-data = [data_ppo]
-colors = ['tab:blue', 'tab:brown', 'tab:orange']
-labels = ["DPLN", "Max", "Min"]
+data = [data_ppo, data_a2c, data_ADR]
+colors = ['#89c1e6', '#fccc91', 'darkseagreen']
+labels = ["PPO", "A2C", "ADR", "Min"]
 
 
 def equations(SNR_max, SNR_req, i, Pt, index_Pt):
@@ -184,12 +290,13 @@ def equations(SNR_max, SNR_req, i, Pt, index_Pt):
     return i, Pt
 
 
-def activation_ADR(ber_th):
+def activation_ADR():
     header = ['ber', 'ber_th', 'snr', 'snr_measured', 'config', 'pt', 'energy_cons', 'sf']
-    with open(local_dir + 'ADR_' + str(ber_th) + '.csv', 'w', encoding='UTF8', newline='') as f:
+    with open(local_dir + 'ADR.csv', 'w', encoding='UTF8', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(header)
         snr_db_measured = 46
+        ber_th = BER_TH[0]
         env.set_ber_nodes(ber_th, 1)
         i = 4
         Pt = 0.012589
@@ -203,10 +310,12 @@ def activation_ADR(ber_th):
                 snr_meas = Pt / (Lpath * nf * k * t * bw[0])
                 snr_db_measured = 10 * math.log10(snr_meas) + 1
                 SNR_TH.append(snr_db_measured)
+                ber_th = BER_TH[0]
                 env.set_ber_snr_distance(ber_th, snr_db_measured, dist, 1)
 
             #ACTIVATE ADR 1
             if j == 20:
+                ber_th = BER_TH[0]
                 env.set_ber_snr_distance(ber_th, snr_db_measured, dist, 1)
                 SNR_20_frames = SNR_TH[0:20]
                 SNR_max = np.max(SNR_20_frames)
@@ -221,6 +330,7 @@ def activation_ADR(ber_th):
                 SNR_TH.append(snr_db_measured)
 
             if j > 20 and j < 40:
+                ber_th = BER_TH[1]
                 env.set_ber_snr_distance(ber_th, snr_db_measured, dist, 1)
                 action = (i, index_Pt)
                 env.step(action)
@@ -231,6 +341,7 @@ def activation_ADR(ber_th):
 
             #ACTIVATE ADR 2
             if j == 40:
+                ber_th = BER_TH[1]
                 env.set_ber_snr_distance(ber_th, snr_db_measured, dist, 1)
                 SNR_20_frames = SNR_TH[20:40]
                 SNR_max = np.max(SNR_20_frames)
@@ -245,6 +356,7 @@ def activation_ADR(ber_th):
                 SNR_TH.append(snr_db_measured)
 
             if j > 40 and j < 60:
+                ber_th = BER_TH[1]
                 env.set_ber_snr_distance(ber_th, snr_db_measured, dist, 1)
                 action = (i, index_Pt)
                 env.step(action)
@@ -255,6 +367,7 @@ def activation_ADR(ber_th):
 
             #ACTIVATE ADR 3
             if j == 60:
+                ber_th = BER_TH[1]
                 env.set_ber_snr_distance(ber_th, snr_db_measured, dist, 1)
                 SNR_20_frames = SNR_TH[40:60]
                 SNR_max = np.max(SNR_20_frames)
@@ -269,6 +382,7 @@ def activation_ADR(ber_th):
                 SNR_TH.append(snr_db_measured)
 
             if j > 60 and j < 80:
+                ber_th = BER_TH[2]
                 env.set_ber_snr_distance(ber_th, snr_db_measured, dist, 1)
                 action = (i, index_Pt)
                 env.step(action)
@@ -279,6 +393,7 @@ def activation_ADR(ber_th):
 
             #ACTIVATE ADR 4
             if j == 80:
+                ber_th = BER_TH[2]
                 env.set_ber_snr_distance(ber_th, snr_db_measured, dist, 1)
                 SNR_20_frames = SNR_TH[60:80]
                 SNR_max = np.max(SNR_20_frames)
@@ -293,6 +408,7 @@ def activation_ADR(ber_th):
                 SNR_TH.append(snr_db_measured)
 
             if j > 80:
+                ber_th = BER_TH[2]
                 env.set_ber_snr_distance(ber_th, snr_db_measured, dist, 1)
                 action = (i, index_Pt)
                 env.step(action)
@@ -310,297 +426,383 @@ def activation_ADR(ber_th):
 
 #for i, ber in enumerate(BER_TH):
 #    activation_ADR(ber)
+#activation_ADR()
 
-
-def plot_snr_comparison():
-    fig0 = plt.figure(figsize=(5, 4))
-    ax0 = fig0.subplots(1, 1)
+def plot_snr_ber_comparison():
+    fig, (ax0, ax1, ax2) = plt.subplots(3, 1, figsize=(6, 6))
+    colors = ['#89c1e6', '#fccc91']
+    num = [0, 20, 40, 60, 80]
 
     for i, s in enumerate(data):
-        if i >= 1:
+        if i >= 2:
             pass
         else:
-            sns.lineplot(ax=ax0, x=s.index[0:80], y=data_ppo['snr'][0:80], data=s[0:80], label=labels[i], alpha=.7,
-                         color=colors[i], ls='-')
+            sns.lineplot(ax=ax0, x=s.index, y=s['snr'], data=s, label=labels[i], alpha=1, color=colors[i],
+                         ls='-', linewidth=2)
 
-    sns.lineplot(ax=ax0, x=data_ADR.index[0:80], y=data_ADR['snr'][0:80], data=data_ADR[0:80], label='ADR', alpha=0.7,
-                 color='tab:red', ls='-')
-    sns.lineplot(ax=ax0, x=data_ppo.index[0:80], y=data_ppo['snr_measured'][0:80], data=data_ppo[0:80],
-                 label=r'$SNR_{measured}$', alpha=1, color='tab:blue', ls=':')
-    sns.lineplot(ax=ax0, x=data_ADR.index[0:80], y=data_ADR['snr_measured'][0:80], data=data_ADR[0:80],
-                 label=r'$SNR_{measured_{ADR}}$', alpha=1, color='tab:red', ls=':')
+    sns.lineplot(ax=ax0, x=data_ADR.index, y=data_ADR['snr'], data=data_ADR, label='ADR', alpha=1, color='darkseagreen',
+                 ls='-', linewidth=2)
+    sns.lineplot(ax=ax0, x=data_ppo.index, y=data_ppo['snr_measured'], data=data_ppo, label=r'$SNR_{measured}$',
+                 alpha=1, color='#89c1e6', ls=':', linewidth=2)
+    sns.lineplot(ax=ax0, x=data_a2c.index, y=data_a2c['snr_measured'], data=data_a2c, label=r'$SNR_{measured}$',
+                 alpha=1, color='#fccc91', ls=':', linewidth=2)
+    sns.lineplot(ax=ax0, x=data_ADR.index, y=data_ADR['snr_measured'], data=data_ADR, label=r'$SNR_{measured_{ADR}}$',
+                 alpha=1, color='darkseagreen', ls=':', linewidth=2)
 
-    # Agregar leyenda de colores
-    legend_colors = ax0.legend(handles=[plt.Line2D([], [], color='tab:blue', linestyle='-'),
-                                        plt.Line2D([], [], color='tab:red', linestyle='-')],
-                               labels=['DPLN', 'ADR'], fontsize=9, loc=(0.775, 0.8))
-    # Agregar leyenda de estilos
-    legend_styles = ax0.legend(handles=[plt.Line2D([], [], color='black', linestyle='-'),
-                                        plt.Line2D([], [], color='black', linestyle=':')],
-                               labels=['SNR min', 'SNR'], fontsize=9, loc=(0.726, 0.63))
+    legend_colors = ax0.legend(handles=[plt.Line2D([], [], color='#89c1e6', linestyle='-', linewidth=2),
+                                        plt.Line2D([], [], color='#fccc91', linestyle='-', linewidth=2),
+                                        plt.Line2D([], [], color='darkseagreen', linestyle='-', linewidth=2)],
+                               labels=['PPO', 'A2C', 'ADR'], fontsize=10, loc=(0.8, 0.57))
+    legend_styles = ax0.legend(handles=[plt.Line2D([], [], color='black', linestyle='-', linewidth=2),
+                                        plt.Line2D([], [], color='black', linestyle=':', linewidth=2)],
+                               labels=['$SNR_{min}$', 'SNR'], fontsize=10, loc=(0.765, 0.26))
 
-    # Añadir las leyendas a la gráfica
     ax0.add_artist(legend_colors)
     ax0.add_artist(legend_styles)
-    ax0.set(xlabel='Uplink messages', ylabel='SNR (dB)')
-    fig0.tight_layout()
-    plt.grid(True, linestyle='-', alpha=0.4)
-    plt.savefig('results/s2_snr.pdf', dpi=400, format='pdf')
-    plt.show()
+    ax0.set_ylabel('SNR', fontsize=13)
+    ax0.set_xticks([])
+    ax0.grid(True, linestyle='-', alpha=0.4)
 
+    for i, s in enumerate(data):
+        ber = np.clip(s['ber'], 1e-19, None)
+        if i < 2:
+            sns.lineplot(ax=ax1, x=s.index, y=ber, data=s,
+                         label=r'$BER_{measured}$', alpha=1, color=colors[i], ls=':', linewidth=2)
+        else:
+            sns.lineplot(ax=ax1, x=s.index, y=data_ppo['ber_th'], data=s, label=labels[i], alpha=1, color='#89c1e6',
+                         ls='-', linewidth=2)
+            sns.lineplot(ax=ax1, x=data_ADR.index, y=ber, data=data_ADR, label=r'$BER_{measured_{ADR}}$',
+                        alpha=1, color='darkseagreen', ls=':', linewidth=2)
 
-def plot_distance_comparison():
-    fig0 = plt.figure(figsize=(5, 4))
-    ax0 = fig0.subplots(1, 1)
+    sns.lineplot(ax=ax1, x=data_ADR.index, y=data_ADR['ber_th'], data=data_ADR, label='ADR', alpha=1, color='darkseagreen',
+                 ls='-', linewidth=2)
+
+    #legend_colors = ax1.legend(handles=[plt.Line2D([], [], color='#89c1e6', linestyle='-', linewidth=2),
+    #                                    plt.Line2D([], [], color='#fccc91', linestyle='-', linewidth=2),
+    #                                    plt.Line2D([], [], color='darkseagreen', linestyle='-', linewidth=2)],
+    #                           labels=['PPO', 'A2C', 'ADR'], fontsize=10, loc=(0.045, 0.57))
+    legend_styles = ax1.legend(handles=[plt.Line2D([], [], color='black', linestyle='-', linewidth=2),
+                                        plt.Line2D([], [], color='black', linestyle=':', linewidth=2)],
+                               labels=['$BER_{max}$', 'BER'], fontsize=10, loc='center left')
+
+    #ax1.add_artist(legend_colors)
+    ax1.add_artist(legend_styles)
+    ax1.set_yscale('log')
+    ax1.set_ylabel('BER', fontsize=13)
+    ax1.set_xticks([])
+    ax1.grid(True, linestyle='-', alpha=0.4)
 
     for i, d in enumerate(data):
-        #distance = smooth(d['distance'], 10)
-        if i >= 1:
+        if i >= 2:
             pass
         else:
-            sns.lineplot(ax=ax0, x=d.index[0:83], y=data_ppo['distance'][0:83], data=d[0:83],
-                         label='Maximum distance DPLN $d_{max}$', alpha=.7, color=colors[i])
+            sns.lineplot(ax=ax2, x=d.index, y=d['distance'], data=d,
+                         label='Maximum distance ' + str(labels[i]) + ' $d_{max}$', alpha=.7, color=colors[i], linewidth=2)
 
-    sns.lineplot(ax=ax0, x=data_ppo.index[0:83], y=data_ppo['distance_th'][0:83], data=data_ppo[0:83],
-                 label='Measured distance $d$', alpha=1, color='tab:blue', linestyle=':')
+            sns.lineplot(ax=ax2, x=data_ppo.index, y=data_ppo['distance_th'], data=data_ppo, label='Measured distance $d$' if i == 0 else "" ,
+                        alpha=1, color=colors[i], linestyle=':', linewidth=2)
 
-    legend_dpln = ax0.legend(handles=[plt.Line2D([], [], color='tab:blue', linestyle='-')],
-                             labels=['Maximum distance DPLN $d_{max}$'], fontsize=9, loc=(0.45, 0.2))
-    # Crear leyenda de la línea discontinua (Gateway-node distance)
-    legend_distance = ax0.legend(handles=[plt.Line2D([], [], color='tab:blue', linestyle=':')],
-                                 labels=['Measured distance $d$'], fontsize=9, loc=(0.58, 0.1))
+    sns.lineplot(ax=ax2, x=data_ADR.index, y=data_ADR['distance'], data=data_ADR, label='ADR', alpha=1,
+                 color='darkseagreen', ls='-', linewidth=2)
 
-    # Agregar leyendas a la gráfica
-    ax0.add_artist(legend_dpln)
-    ax0.add_artist(legend_distance)
-    ax0.set(xlabel='Uplink messages', ylabel='Distance (km)')
-    fig0.tight_layout()
-    plt.grid(True, linestyle='-', alpha=0.4)
-    plt.savefig('results/s2_distance.pdf', dpi=400, format='pdf')
-    plt.show()
+    #legend_colors = ax2.legend(handles=[plt.Line2D([], [], color='#89c1e6', linestyle='-', linewidth=2),
+    #                                    plt.Line2D([], [], color='#fccc91', linestyle='-', linewidth=2),
+    #                                    plt.Line2D([], [], color='darkseagreen', linestyle='-', linewidth=2)],
+    #                           labels=['PPO', 'A2C', 'ADR'], fontsize=10, loc='best')
+    legend_styles = ax2.legend(handles=[plt.Line2D([], [], color='black', linestyle='-', linewidth=2),
+                                        plt.Line2D([], [], color='black', linestyle=':', linewidth=2)],
+                               labels=['Maximum distance $d_{max}$', 'Distance $d$'], fontsize=10, loc='upper left')
+    #ax2.add_artist(legend_colors)
+    ax2.add_artist(legend_styles)
+    ax2.yaxis.grid(True, linestyle='-', alpha=0.4)
+    ax2.set_xticks(num)
+    ax2.set_xlabel('Uplink messages', fontsize=13)
+    ax2.set_ylabel('Distance (km)', fontsize=13)
 
-
-def plot_cdf(data_ppo, data_ADR):
-
-    # sort the data:
-    data_sorted_ppo = np.sort(data_ppo)
-    data_sorted_adr = np.sort(data_ADR)
-
-    # calculate the proportional values of samples
-    p_ppo = 1. * np.arange(len(data_ppo)) / (len(data_ppo) - 1)
-    p_adr = 1. * np.arange(len(data_ADR)) / (len(data_ADR) - 1)
-
-    # plot the sorted data:
-    fig = plt.figure(figsize=(5, 4))
-    plt.plot(data_sorted_ppo, p_ppo, color='tab:blue', label='DPLN')
-    plt.plot(data_sorted_adr, p_adr, color='tab:green', label='ADR')
-
-    plt.grid(True, linestyle='-', alpha=0.4)
-    plt.legend(fontsize=9)
-    plt.xlabel('Estimated BER')
-    plt.ylabel('$p$')
-    plt.savefig('s2_cdf.png', dpi=400)
+    fig.tight_layout()
+    plt.savefig('results/s2_snr_ber.pdf', dpi=400, format='pdf')
     plt.show()
 
 
 def plot_ber_energy_magnitudes():
     ranges = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18]
     magnitudes = [-14, -13, -12, -11, -10, -9, -8, -7, -6, -5]
-    alpha = [0.6, 0.6, 0.6]
-    shift = [-0.50, 0]
-    fill_pattern = ['', '//', '//']
-    labels = ['DPLN', 'ADR']
-    colors = ['tab:blue', 'tab:red']
+    alpha = [1, 1, 1]
+    shift = [-0.35, 0, 0.35]
+    fill_pattern = ['', '', '//']
+    labels_BER = ['PPO', 'A2C', 'ADR']
+    labels_SNR = ['PPO', 'A2C', 'ADR']
+    labels_energy = ['PPO', 'A2C', 'ADR']
+    colors = ['#89c1e6', '#fccc91', 'darkseagreen']
 
-    fig = plt.figure(figsize=(6, 7))
-    gs = fig.add_gridspec(3, 1, height_ratios=[2, 1, 1])
+    fig = plt.figure(figsize=(5, 5))
+    gs = fig.add_gridspec(3, 1, height_ratios=[1, 1, 1])
 
     ax0 = fig.add_subplot(gs[0])
     ax1 = fig.add_subplot(gs[1])
     ax2 = fig.add_subplot(gs[2])
 
     for j, mag in enumerate(magnitudes):
-        data_ppo = pd.read_csv(local_dir + '1e' + str(mag) + '.csv')
-        data_ADR = pd.read_csv(local_dir + 'ADR_1e' + str(mag) + '.csv')
-        data = [data_ppo, data_ADR]
+        data_ppo = pd.read_csv(local_dir + '1e' + str(mag) + '_d2_.csv')
+        data_a2c = pd.read_csv(local_dir + '1e' + str(mag) + '_A2C_d2.csv')
+        data_ADR = pd.read_csv(local_dir + 'ADR_1e' + str(mag) + '_d2.csv')
+        data = [data_ppo, data_a2c, data_ADR]
+
         for i, d in enumerate(data):
-            ax0.bar(ranges[j] + shift[i], d['ber'].mean(), width=0.50, zorder=5, color=colors[i],
-                    edgecolor=colors[i], alpha=alpha[i], hatch=fill_pattern[i], lw=1.,
-                    label=labels[i] if j == 0 else "", fill=True)
+            filtered_ber = d['ber'][~np.isinf(d['ber'])]  # Filtrar valores "inf" en la columna 'ber'
+            filtered_snr = d['snr_measured'][
+                ~np.isinf(d['snr_measured'])]  # Filtrar valores "inf" en la columna 'snr_measured'
+            filtered_energy = d['energy_cons'][
+                ~np.isinf(d['energy_cons'])]  # Filtrar valores "inf" en la columna 'energy_cons'
 
-            ax2.bar(ranges[j] + shift[i], d['energy_cons'].mean(), width=0.50, zorder=5, color=colors[i],
-                    edgecolor=colors[i], alpha=alpha[i], hatch=fill_pattern[i], lw=1.,
-                    label=labels[i] if j == 0 else "", fill=True)
+            ax0.bar(ranges[j] + shift[i], filtered_ber.mean(),
+                    yerr=np.std(filtered_ber, ddof=1) / np.sqrt(len(filtered_ber)),
+                    error_kw=dict(ecolor='black', elinewidth=0.5, lolims=False), width=0.32, zorder=5,
+                    color=colors[i], edgecolor=colors[i], alpha=alpha[i], hatch=fill_pattern[i], lw=1.,
+                    label=labels_BER[i] if j == 0 else "", fill=True)
 
-            ax1.bar(ranges[j] + 0.5, d['snr'].mean(), width=0.50, zorder=5, color=colors[i],
-                    edgecolor=colors[i], alpha=alpha[i], hatch=fill_pattern[i], lw=1.,
-                    label=labels[i] if j == 0 else "", fill=True)
+            ax1.bar(ranges[j] + shift[i], filtered_snr.mean(),
+                    yerr=np.std(filtered_snr, ddof=1) / np.sqrt(len(filtered_snr)),
+                    error_kw=dict(ecolor='black', elinewidth=0.5, lolims=False), width=0.32,
+                    zorder=5, color=colors[i], edgecolor=colors[i], alpha=alpha[i], hatch=fill_pattern[i], lw=1.,
+                    label=labels_SNR[i] if j == 0 else "", fill=True)
 
-            ax1.bar(ranges[j] + shift[i], d['snr_measured'].mean(), width=0.50, zorder=5, color=colors[i],
-                    edgecolor=colors[i], alpha=alpha[i], hatch=fill_pattern[i], lw=1.,
-                    label=labels[i] if j == 0 else "", fill=True)
+            ax2.bar(ranges[j] + shift[i], filtered_energy.mean(),
+                    yerr=np.std(filtered_energy, ddof=1) / np.sqrt(len(filtered_energy)),
+                    error_kw=dict(ecolor='black', elinewidth=0.5, lolims=False), width=0.32,
+                    zorder=5, color=colors[i], edgecolor=colors[i], alpha=alpha[i], hatch=fill_pattern[i], lw=1.,
+                    label=labels_energy[i] if j == 0 else "", fill=True)
 
-            if i == 0:
-                ax0.bar(ranges[j] + 0.5, d['ber_th'].mean(), width=0.50, zorder=5, color='none',
-                        edgecolor='red', alpha=1, lw=1., label='$BER_{max}$' if j == 0 else "", fill=True)
-                ax1.bar(ranges[j] + shift[i], d['snr'].mean(), width=0.50, zorder=5, color=colors[i],
-                        edgecolor=colors[i], alpha=alpha[i], hatch=fill_pattern[i], lw=1.,
-                        label=labels[i] if j == 0 else "", fill=True)
+        ax0.bar(ranges[j] + 0.71, data_ppo['ber_th'].mean(),
+                yerr=np.std(data_ppo["ber_th"], ddof=1) / np.sqrt(len(data_ppo["ber_th"])),
+                error_kw=dict(ecolor='black', elinewidth=0.5, lolims=False), width=0.32, zorder=5, color='#ef8582',
+                edgecolor='#ef8582', alpha=1, lw=1., label='$BER_{max}$' if j == 0 else "", fill=True)
+        ax1.bar(ranges[j] + 0.71, data_ppo['snr'].mean(),
+                yerr=np.std(data_ppo["snr"], ddof=1) / np.sqrt(len(data_ppo["snr"])),
+                error_kw=dict(ecolor='black', elinewidth=0.5, lolims=False), width=0.32, zorder=5, color='#ef8582',
+                edgecolor='#ef8582', alpha=1, lw=1., label='SNR' if j == 0 else "", fill=True)
 
-    ax0.legend(fontsize=9)
+    ax0.legend(fontsize=10, ncol=5)
     ax0.yaxis.grid(True, linestyle='-', alpha=0.4)
-    ax0.set(ylabel='BER')
+    ax0.set_ylabel('BER', fontsize=13)
     ax0.set_yscale('log')
+    ax0.set_ylim([1e-18, 1e5])
     ax0.set_xticks([])
 
-    ax2.yaxis.grid(True, linestyle='-', alpha=0.4)
-    ax2.set(xlabel='Order of magnitude of the desired $BER_{max}$', ylabel='Energy consumption (J)')
-    ax2.set_xticks(ranges)
-    ax2.set_xticklabels(magnitudes)
-    ax2.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
-
+    ax1.legend(fontsize=10, ncol=5, loc='lower right')
     ax1.yaxis.grid(True, linestyle='-', alpha=0.4)
     ax1.set_xticks([])
-    ax1.set(ylabel='SNR')
-    #ax1.set(xlabel='Order of magnitude of the desired $BER_{max}$', ylabel='SNR')
-    #ax1.set_xticks(ranges)
-    #ax1.set_xticklabels(magnitudes)
-    #ax1.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
+    ax1.set_ylabel('$SNR_{min}$', fontsize=13)
+    ax1.set_ylim([-25, 15])
+
+    ax2.legend(fontsize=10, ncol=5)
+    ax2.yaxis.grid(True, linestyle='-', alpha=0.4)
+    ax2.set_xlabel('Order of magnitude of the desired $BER_{max}$', fontsize=13)
+    ax2.set_ylabel('Energy \nconsumption (J)', fontsize=13)
+    ax2.set_xticks(ranges)
+    ax2.set_xticklabels(magnitudes)
+    ax2.set_ylim([0, 38])
 
     fig.tight_layout()
-    #plt.savefig('results/s1_ber_energy.pdf', dpi=400, format='pdf')
-    plt.show()
-
-
-def plot_ber_energy():
-    ranges = [0, 2, 4]
-    magnitudes = [27, 54, 81]
-    alpha = [0.6, 0.6]
-    shift = [-0.25, 0]
-    fill_pattern = ['', '']
-    labels = ['DPLN', 'ADR']
-    colors = ['tab:blue', 'tab:red']
-    data = [data_ppo, data_ADR]
-
-    fig = plt.figure(figsize=(6, 6))
-    gs = fig.add_gridspec(2, 1, height_ratios=[2, 2])
-
-    ax0 = fig.add_subplot(gs[0])
-    ax1 = fig.add_subplot(gs[1])
-
-    for i, d in enumerate(data):
-        ber = d['ber']
-        ber_th = d['ber_th']
-        energy = d['energy_cons']
-
-        size_range = 27
-
-        for j, r in enumerate(ranges):
-            inicio = j * size_range
-            fin = (j + 1) * size_range
-            ber = np.clip(ber, 1e-16, None)
-            ber_mean = ber[inicio:fin].mean()
-            ber_th_mean = ber_th[inicio:fin].mean()
-            energy_mean = energy[inicio:fin].mean()
-
-            ax0.bar(r + shift[i], ber_mean, width=0.25, zorder=5, color=colors[i],
-                    edgecolor=colors[i], alpha=alpha[i], hatch=fill_pattern[i], lw=1.,
-                    label=labels[i] if j == 0 else "", fill=True)
-
-            ax1.bar(r + shift[i], energy_mean, width=0.25, zorder=5, color=colors[i],
-                    edgecolor=colors[i], alpha=alpha[i], hatch=fill_pattern[i], lw=1.,
-                    label=labels[i] if j == 0 else "", fill=True)
-            if i == 0:
-                ax0.bar(r + 0.25, ber_th_mean, width=0.25, zorder=5, color='none',
-                        edgecolor='black', alpha=1, lw=1., label='$BER_{max}$' if j == 0 else "", fill=True)
-
-    ax0.legend(fontsize=9, loc=(0.2, 0.6))
-    ax0.yaxis.grid(True, linestyle='-', alpha=0.4)
-    ax0.set(ylabel='BER')
-    ax0.set_yscale('log')
-    ax0.set_xticks([])
-
-    ax1.yaxis.grid(True, linestyle='-', alpha=0.4)
-    ax1.set(xlabel='Uplink messages', ylabel='Energy consumption (J)')
-    ax1.set_xticks(ranges)
-    ax1.set_xticklabels(magnitudes)
-    ax1.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
-
-    fig.tight_layout()
-    plt.savefig('results/s1_ber_energy.pdf', dpi=400, format='pdf')
+    plt.savefig('results/s2_ber_energy_snr_d2.pdf', dpi=400, format='pdf')
     plt.show()
 
 
 def plot_comparative_config():
     df1 = data_ppo
-    df2 = data_ADR
+    df2 = data_a2c
+    df3 = data_ADR
     pt_df1 = df1['pt']
     pt_df2 = df2['pt']
+    pt_df3 = df3['pt']
     sf_df1 = df1['sf']
     sf_df2 = df2['sf']
+    sf_df3 = df3['sf']
+    labels_energy = ['PPO', 'A2C', 'ADR']
 
     # Crear la figura y los subplots
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5, 4), sharex=True)
+    fig, (ax0, ax1, ax2) = plt.subplots(3, 1, figsize=(6, 6))
 
     # Graficar las variables en los subplots
-    ax1.plot(sf_df1.index, sf_df1, color='tab:blue', label='DPLN', alpha=.7)
-    ax1.plot(sf_df2.index, sf_df2,  color='tab:red', label='ADR', alpha=.7)
-    ax1.set_ylabel('SF')
+    sns.lineplot(ax=ax0, x=sf_df1.index, y=sf_df1, data=sf_df1, color='#89c1e6', label='PPO', alpha=1, linewidth=2)
+    sns.lineplot(ax=ax0, x=sf_df2.index, y=sf_df2, data=sf_df2, color='#fccc91', label='A2C', alpha=1, linewidth=2)
+    sns.lineplot(ax=ax0, x=sf_df3.index, y=sf_df3, data=sf_df3, color='darkseagreen', label='ADR', alpha=1, linewidth=2)
+    ax0.set_ylabel('SF', fontsize=13)
+    ax0.grid(True, linestyle='-', alpha=0.4)
+    ax0.legend(fontsize=11, loc='upper left')
+    ax0.set_xticks([])
+
+    sns.lineplot(ax=ax1, x=pt_df1.index, y=pt_df1, data=pt_df1, color='#89c1e6', alpha=1, linewidth=2)
+    sns.lineplot(ax=ax1, x=pt_df2.index, y=pt_df2, data=pt_df2, color='#fccc91', alpha=1, linewidth=2)
+    sns.lineplot(ax=ax1, x=pt_df3.index, y=pt_df3, data=pt_df3, color='darkseagreen', alpha=1, linewidth=2)
+    ax1.set_ylabel('$p_t$ (W)', fontsize=13)
     ax1.grid(True, linestyle='-', alpha=0.4)
-    ax1.legend(fontsize=9)
+    ax1.set_xticks([])
+    #ax1.legend(fontsize=11, loc='center right')
 
-    ax2.plot(pt_df1.index, pt_df1, color='tab:blue', label='DPLN', alpha=.7)
-    ax2.plot(pt_df2.index, pt_df2,  color='tab:red', label='ADR', alpha=.7)
-    ax2.set_xlabel('Uplink messages')
-    ax2.set_ylabel('TP (W)')
-    ax2.grid(True, linestyle='-', alpha=0.4)
-    ax2.legend(loc='center right', fontsize=9)
+    for i, d in enumerate(data):
+        battery_levels = []
+        MAX_BATTERY_LEVEL = 21312
+        for index, row in d.iterrows():
+            energy_cons = row['energy_cons']
+            MAX_BATTERY_LEVEL = MAX_BATTERY_LEVEL - energy_cons
+            battery_levels.append(MAX_BATTERY_LEVEL)
 
-    plt.savefig('results/comparative.pdf', dpi=400, format='pdf')
+        sns.lineplot(ax=ax2, x=d.index, y=battery_levels, data=d, alpha=1,
+                     color=colors[i], ls='-', linewidth=2)
 
+    #ax2.legend(fontsize=11)
+    ax2.set_xticks
+    ax2.set_xlabel('Uplink messages', fontsize=13)
+    ax2.set_ylabel('Energy \nconsumption (J)', fontsize=13)
+    ax2.yaxis.grid(True, linestyle='-', alpha=0.4)
+    ax2.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
+
+    fig.tight_layout()
+    plt.savefig('results/s2_comparative.pdf', dpi=400, format='pdf')
     plt.show()
 
 
-def plot_energy_nodes():
-    fig = plt.figure(figsize=(5, 4))
-    ax1 = fig.subplots(1, 1)
+def plot_scenario3_payload():
+    real_ranges = [0, 10, 20, 30, 40, 50, 60, 70, 80]
+    labels_met = ['BER PPO', 'BER A2C', 'SNR PPO', 'SNR A2C']
+    colors = ['#3e7ea8', '#d98e32', '#3e7ea8', '#d98e32']
+    data_a2c = pd.read_csv(local_dir + 'A2C_DPLN_s3.csv')
+    data_ppo = pd.read_csv(local_dir + 'DPLN_s3.csv')
+    data = [data_ppo, data_a2c]
 
-    nodes = [1, 3, 5]
-    payload = [26, 78, 130]
-    alpha = [0.6, 0.6, 0.6]
-    shift = [-0.35, 0, 0.35]
-    fill_pattern = ['', '//', '//']
+    fig = plt.figure(figsize=(7, 3))
+    ax0 = fig.subplots(1, 1)
+    ax1 = ax0.twinx()
+    shift = [-2, 1]
+    alpha = [1, 1, 1, 1]
+    fill_pattern = ['', '', '//', '//']
+    nodes = [1, 3, 2, 4, 1]
+    colors_alg = ['green', 'blue', 'green', 'blue']
+    colors_met = ['orange', 'green']
 
-    for n, nod in enumerate(nodes):
-        data_ppo = pd.read_csv(local_dir + 'n_' + str(nod) + '_PPO_prueba.csv')
-        data_SF7 = pd.read_csv(local_dir + 'n_' + str(nod) + '_SF7_prueba.csv')
-        data_SF12 = pd.read_csv(local_dir + 'n_' + str(nod) + '_SF12_prueba.csv')
+    size_range = [0, 10, 20, 30, 40, 50, 60, 70, 80, 87]
 
-        data = [data_ppo, data_SF7, data_SF12]
-        for j, d in enumerate(data):
-            energy_value = MAX_BATTERY_LEVEL - d['e'].iloc[-1]
-            if j >=1:
-                ax1.bar(nod + shift[j], energy_value, width=0.35, zorder=5, color='none', edgecolor=colors[j],
-                        alpha=alpha[j], label=labels[j] if n == 0 else "", hatch=fill_pattern[j], lw=1.)
-            else:
-                ax1.bar(nod + shift[j], energy_value, capsize=2, width=0.35, zorder=5, color=colors[j], alpha=alpha[j],
-                        label=labels[j] if n == 0 else "")
+    bar_width = 1.5  # Ancho de las barras
+    bar_spacing = 1.5  # Espaciado entre las barras
 
-    ax1.set_xticks(nodes)
-    ax1.set_xticklabels(payload)
-    #ax1.yaxis.grid(True, linestyle='-', alpha=0.4)
-    ax1.set_ylabel('Energy consumption (J)')
-    ax1.set_xlabel('Payload (bytes)')
-    ax1.legend(bbox_to_anchor=(0.5, 0.95), fontsize=8)
-    ax1.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
+    for z, d in enumerate(data):
+        for j, r in enumerate(size_range):
+            if j < 9:
+                start = size_range[j]
+                end = size_range[j + 1]
+                count_ber = 0
+                count_snr = 0
+                for i in range(start, end):
+                    if d['ber'][i] > d['ber_th'][i]:
+                        count_ber += 1
+                    if d['snr_measured'][i] < d['snr'][i]:
+                        count_snr += 1
+                if count_snr == 0:
+                    count_snr = 0.1
+                if count_ber == 0:
+                    count_ber = 0.1
+                percentage_ber = count_ber / len(d) * 100
+                print(percentage_ber)
+                percentage_snr = count_snr / len(d) * 100
+                print(percentage_snr)
+                sns.lineplot(data=d['nodes'] * 26, x=d.index, y=d['nodes'] * 26, color='#ef8582', ax=ax0, linewidth=1,
+                             zorder=0)
+
+                ax1.bar(r + shift[z], percentage_snr, width=bar_width, zorder=6, color='none',
+                        edgecolor=colors[z], alpha=alpha[z], hatch='//', lw=1.,
+                        label=labels_met[z] if j == 0 else "", fill=False)
+
+                ax1.bar(r + shift[z] + bar_spacing, percentage_ber, width=bar_width, zorder=6, color='none',
+                        edgecolor=colors[z+2], alpha=alpha[z], hatch='', lw=1.,
+                        label=labels_met[z + 2] if j == 0 else "", fill=False)
+
+    #ax0.legend(fontsize=9, loc='upper left')
+    ax1.legend(fontsize=9, loc='upper right')
+    ax0.set_xticks(real_ranges)
+    ax0.set_xlim(-5, 87)
+    ax1.set_ylim([0, 10])
+    ax0.yaxis.grid(True, linestyle='-', alpha=0.4)
+    ax0.set(xlabel='Uplink messages')
+    ax0.set_ylabel(ylabel='Payload (bytes)', color='#c7514e')
+    ax1.set_ylabel(ylabel='% of BER and SNR infringement', color=colors[2])
+    ax1.tick_params(axis='y', colors=colors[2])
+
+    # Cambiar el color del eje y izquierdo a azul
+    ax0.tick_params(axis='y', colors='#c7514e')
+
+    # Formatear los valores del eje y como porcentajes sobre 100
+    ax1.yaxis.set_major_formatter(mticker.PercentFormatter(xmax=100))
     plt.tight_layout()
+    plt.savefig('results/s3_payload.pdf', dpi=400, format='pdf')
     plt.show()
 
-#plot_snr_comparison()
-#plot_distance_comparison()
-#plot_cdf(data_ppo['ber'], data_ADR['ber'])
-#plot_comparative_config()
-#plot_ber_energy()
-#plot_energy_nodes()
 
+data_adr = pd.read_csv(local_dir + 'ADR.csv')
+data_a2c = pd.read_csv(local_dir + 'A2C_DPLN.csv')
+data_ppo = pd.read_csv(local_dir + 'DPLN.csv')
+
+count_adr_ber = 0
+count_adr_snr = 0
+count_a2c_ber = 0
+count_a2c_snr = 0
+count_ppo_ber = 0
+count_ppo_snr = 0
+
+# Iterar sobre las filas del DataFrame data_ppo
+for index, row in data_adr.iterrows():
+    if row['ber'] > row['ber_th']:
+        count_adr_ber += 1
+
+for index, row in data_a2c.iterrows():
+    if row['ber'] > row['ber_th']:
+        count_a2c_ber += 1
+
+for index, row in data_ppo.iterrows():
+    if row['ber'] > row['ber_th']:
+        count_ppo_ber += 1
+
+for index, row in data_adr.iterrows():
+    if row['snr_measured'] < row['snr']:
+        count_adr_snr += 1
+
+for index, row in data_a2c.iterrows():
+    if row['snr_measured'] < row['snr']:
+        count_a2c_snr += 1
+
+for index, row in data_ppo.iterrows():
+    if row['snr_measured'] < row['snr']:
+        count_ppo_snr += 1
+
+# Imprimir los resultados
+#print("Número de veces que 'ber' es mayor que 'ber_th' en data_adr:", count_adr_ber)
+#print("Número de veces que 'snr' es menor que 'snr_measured' en data_adr:", count_adr_snr)
+#print("Número de veces que 'ber' es mayor que 'ber_th' en data_ppo:", count_ppo_ber)
+#print("Número de veces que 'snr' es menor que 'snr_measured' en data_ppo:", count_ppo_snr)
+#print("Número de veces que 'ber' es mayor que 'ber_th' en data_a2c:", count_a2c_ber)
+#print("Número de veces que 'snr' es menor que 'snr_measured' en data_a2c:", count_a2c_snr)
+
+#print("Número de veces que 'ber' es mayor que 'ber_th' en data_a2c:", count_a2c)
+
+"""
+count_ppo = 0
+count_a2c = 0
+
+# Iterar sobre las filas del DataFrame data_ppo
+for index, row in data_ppo.iterrows():
+    if row['snr_measured'] < row['snr']:
+        count_ppo += 1
+
+# Iterar sobre las filas del DataFrame data_a2c
+for index, row in data_a2c.iterrows():
+    if row['snr_measured'] < row['snr']:
+        count_a2c += 1
+
+# Imprimir los resultados
+print("Número de veces que 'snr_measured' es menor que 'snr' en data_ppo:", count_ppo)
+print("Número de veces que 'snr_measured' es menor que 'snr' en data_a2c:", count_a2c)
+"""
+plot_snr_ber_comparison()
+#plot_comparative_config()
 #plot_ber_energy_magnitudes()
+#plot_scenario3_payload()
