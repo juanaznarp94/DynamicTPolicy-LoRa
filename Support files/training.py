@@ -117,26 +117,26 @@ env = loraEnv(10)
 # It will check your custom environment and output additional warnings if needed
 check_env(env)
 
-print("Observation space: ", env.observation_space)  # cual es el estado actual
-print("Shape: ", env.observation_space.shape)  # la forma del estado
-print("Action space: ", env.action_space)  # shape de la acción (número)
+print("Observation space: ", env.observation_space)  
+print("Shape: ", env.observation_space.shape)  
+print("Action space: ", env.action_space) 
 
 # The reset method is called at the beginning of an episode
-obs = env.reset()  # se resetea. Tienes un nuevo estado, una nueva observación
+obs = env.reset() 
 # Sample a random action
-action = env.action_space.sample()  # Coges una acción al azar
+action = env.action_space.sample()  
 print("Sampled action: ", action)
 
 obs, reward, done, info = env.step(action)
 
-print(obs.shape, reward, done, info)  # pruebo que la recompensa sale bien
+print(obs.shape, reward, done, info)  
 
 #### Training / Empieza el entrenamiento
-env = wrappers.TimeLimit(env, max_episode_steps=10)  # Es lo que hace que cuando acabe el episodio resetee
+env = wrappers.TimeLimit(env, max_episode_steps=10)  
 env = Monitor(env, log_dir)
 env = make_vec_env(lambda: env, n_envs=1)
 
-callback = SaveOnBestTrainingRewardCallback(check_freq=10000, log_dir=log_dir, verbose=1)  # guarda el mejor modelo
+callback = SaveOnBestTrainingRewardCallback(check_freq=10000, log_dir=log_dir, verbose=1)  
 
 #model = RecurrentPPO("MlpLstmPolicy", env, verbose=0, gamma=0.9, learning_rate=0.0001)
 #model = A2C('MlpPolicy', env, verbose=0, gamma=0.9, learning_rate=0.0001)
