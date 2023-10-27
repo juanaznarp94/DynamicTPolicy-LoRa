@@ -106,7 +106,7 @@ class SaveOnBestTrainingRewardCallback(BaseCallback):
         return True
 
 
-log_dir = "logs/" # carpeta logs para meter todos los resultados
+log_dir = "logs/" 
 os.makedirs(log_dir, exist_ok=True)
 
 # Don't forget that it has been load from RoadEnvAC, not RoadEnv
@@ -152,8 +152,7 @@ model.save("lora_rl_sac_v" + str(version))
 
 # Helper from the library
 #results_plotter.plot_results([log_dir], 1e5, results_plotter.X_TIMESTEPS, "PPO")
-plot_results(log_dir, version)  # coge de la carpeta log el mejor modelo con la versión q le pongas y pinta la
-#la recompensa q has tenido durante el tiempo de entrenamiento
+plot_results(log_dir, version) 
 
 # How to load previous trained model
 #model = A2C.load("logs/best_model_v1.zip")
