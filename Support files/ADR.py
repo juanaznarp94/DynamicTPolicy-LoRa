@@ -15,30 +15,44 @@ ALL_ACTIONS = {
     "a10": {'CR': 4 / 5, 'SF': 7, 'RSSI': [-114], 'BW': 500, 'DR': 21.875}
 }
 
+adr_snr_req = {
+    7: -7.5,
+    8: -10,
+    9: -12.5,
+    10: -15,
+    11: -17.5,
+    12: -20
+}
+
 Pt = 12 #dBm
 Pt_max = 15
 i = 0
+sf = ALL_ACTIONS.get('SF')[i]
+adr_snr = adr_snr_req[sf]
+adr_margin = 10 # dBm
 
-for j in range(100): #quitar
+for j in range(100): # define iterations
     SNR_20_frames = []
-    for i in range(20):
-        SNR_20_frames.append(random.randint(-15, 15))
-    SNR_max = np.max(SNR_20_frames)
-    ALL_ACTIONS.values()[i]
-    SNR_req = SNR_20_frames[0]
-
-    SNR_margin = SNR_max - SNR_req - 10
-
-    N_step = math.floor(SNR_margin/3)
-
-    if N_step > 0:
-        if ALL_ACTIONS.get('SF') > 7:
-            i = i + 1
+    SNR_20_frames.append(random.randint(-20, 30)) # establish SNR limits
+    if len(SNR_20_frames) >= 20:
+        SNR_max = np.max(SNR_20_frames)
+        SNR_req = SNR_20_frames[0]
+        SNR_margin = SNR_max - adr_snr_req[sf] - adr_margin
+        N_step = math.floor(SNR_margin/3)
+    
+        if Nstep == 0:
+            pass
         else:
-            Pt = Pt + 1
-    if N_step < 0:
-        if Pt != Pt_max:
-            Pt = Pt + 1
-
-
+            while Nstep > 0 and sf > sf_min:
+                sf = sf - 1
+                Nstep = Nstep - 1
+            while Nstep > 0 and ptx > pt_min:
+                ptx = ptx - 3
+                Nstep = Nstep - 1
+            while Nstep < 0 and ptx < pt_max:
+                ptx = ptx + 3
+                Nstep = Nstep + 1
+            while Nstep < 0 and sf < sf_max:
+                sf = sf + 1
+                Nstep = Nstep + 1
 
