@@ -20,3 +20,6 @@ Available trained models are ready to be used in the log folder.
 - scikit-learn 1.2.1
 - seaborn 0.12.2
 - stable-baselines3 1.7.0
+
+### Paper published
+Acosta-Garcia, Laura, et al. "Dynamic transmission policy for enhancing LoRa network performance: A deep reinforcement learning approach." Internet of Things 24 (2023): 100974.
