@@ -23,3 +23,4 @@ Available trained models are ready to be used in the log folder.
 
 ### Paper published
 Acosta-Garcia, Laura, et al. "Dynamic transmission policy for enhancing LoRa network performance: A deep reinforcement learning approach." Internet of Things 24 (2023): 100974.
+[Link to the published paper](https://www.sciencedirect.com/science/article/pii/S2542660523002974)
